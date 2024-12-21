@@ -1,4 +1,10 @@
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct Message {
+    content: String,
+}
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -11,7 +17,8 @@ async fn echo(req_body: String) -> impl Responder {
 }
 
 async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
+    let response = Message { content: String::from("Hey there biitccchh!") };
+    HttpResponse::Ok().json(response)
 }
 
 #[actix_web::main]
