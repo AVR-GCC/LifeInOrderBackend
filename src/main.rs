@@ -1,3 +1,6 @@
+mod config;
+use eyre::WrapErr;
+use crate::config::Config;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use serde::Serialize;
 
@@ -23,13 +26,14 @@ async fn manual_hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let c = Config::from_env().unwrap_or_else(|e| panic!("{:?}", e));
     HttpServer::new(|| {
         App::new()
             .service(hello)
             .service(echo)
             .route("/hey", web::get().to(manual_hello))
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind((c.host, c.port))?
     .run()
     .await
 }
