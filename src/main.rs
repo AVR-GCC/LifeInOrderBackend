@@ -26,7 +26,8 @@ async fn manual_hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let c = Config::from_env().unwrap_or_else(|e| panic!("{:?}", e));
+    let c = Config::from_env()
+        .expect("Server Configuration");
     HttpServer::new(|| {
         App::new()
             .service(hello)
