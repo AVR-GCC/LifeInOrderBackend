@@ -7,7 +7,7 @@ use dotenv::dotenv;
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub host: String,
-    pub port: u16
+    pub port: i32
 }
 //Result<Config>
 impl Config {

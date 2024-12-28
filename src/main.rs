@@ -34,7 +34,7 @@ async fn main() -> std::io::Result<()> {
             .service(echo)
             .route("/hey", web::get().to(manual_hello))
     })
-    .bind((c.host, c.port))?
+    .bind(format!("{}:{}", c.host, c.port))?
     .run()
     .await
 }
