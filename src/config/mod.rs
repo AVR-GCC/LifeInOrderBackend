@@ -23,6 +23,6 @@ impl Config {
             .context("Error: Port not found")?
             .parse()
             .context("Error: Port not valid")?;
-        Ok(Config { host: host, port: port })
+        Ok(Config { host, port })
     }
 }
