@@ -15,7 +15,7 @@ impl Config {
         dotenv().ok();
 
         let env = config::Config::builder()
-            .add_source(config::Environment::with_prefix("APP"))
+            .add_source(config::Environment::default())
             .build()
             .context("Error: Failed to read env")?;
         let host = env.get("host").context("Error: Host not found")?;
