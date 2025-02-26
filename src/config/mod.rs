@@ -6,6 +6,7 @@ use dotenv::dotenv;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    pub database_url: String,
     pub host: String,
     pub port: i32
 }
@@ -23,6 +24,7 @@ impl Config {
             .context("Error: Port not found")?
             .parse()
             .context("Error: Port not valid")?;
-        Ok(Config { host, port })
+        let database_url = env.get("database_url").context("Error: Database url not found")?;
+        Ok(Config { host, port, database_url })
     }
 }
