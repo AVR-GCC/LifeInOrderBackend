@@ -61,3 +61,17 @@ pub struct NewHabitValue {
     pub color: String,
 }
 
+#[derive(Queryable, Serialize)]
+pub struct DayValue {
+    pub id: i32,
+    pub value_id: i32,
+    pub user_day_id: i32,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Insertable, Deserialize)]
+#[diesel(table_name = crate::db::schema::day_values)]
+pub struct NewDayValue {
+    pub value_id: i32,
+    pub user_day_id: i32,
+}
