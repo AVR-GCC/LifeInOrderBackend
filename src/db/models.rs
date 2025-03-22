@@ -28,3 +28,21 @@ pub struct NewUserDay {
     pub user_id: i32,
     pub date: NaiveDate,
 }
+
+#[derive(Queryable, Serialize)]
+pub struct UserHabit {
+    pub id: i32,
+    pub user_id: i32,
+    pub name: String,
+    pub weight: i32,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Insertable, Deserialize)]
+#[diesel(table_name = crate::db::schema::user_habits)]
+pub struct NewUserHabit {
+    pub user_id: i32,
+    pub name: String,
+    pub weight: i32,
+}
+
