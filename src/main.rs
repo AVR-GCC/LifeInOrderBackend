@@ -12,8 +12,8 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use diesel::pg::PgConnection;
 
-use crate::db::schema::user_days::dsl::*;
-use crate::db::models::{UserDay, NewUserDay};
+use crate::db::schema::{user_days::dsl::*, users::dsl::*};
+use crate::db::models::{User, NewUser, UserDay, NewUserDay};
 mod db;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -36,6 +36,24 @@ async fn echo(req_body: String) -> impl Responder {
 async fn manual_hello() -> impl Responder {
     let response = Message { content: String::from("Hey there biitccchh!") };
     HttpResponse::Ok().json(response)
+}
+#[post("/users")]
+async fn create_user(
+    pool: web::Data<DbPool>,
+    req_body: web::Json<NewUser>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let new_user = req_body.into_inner();
+    debug!("Creating user: {:?}", new_user);
+
+    let mut conn = pool.get().map_err(actix_web::error::ErrorInternalServerError)?;
+    let inserted = diesel::insert_into(users)
+        .values(&new_user)
+        .returning((crate::db::schema::users::dsl::id, name, email, crate::db::schema::users::dsl::created_at))
+        .get_result::<User>(&mut conn)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    debug!("Inserted user: {:?}", inserted);
+    Ok(HttpResponse::Ok().json(inserted))
 }
 
 #[post("/user_days")]
