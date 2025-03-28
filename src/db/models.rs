@@ -8,7 +8,7 @@ pub struct User {
     pub name: String,
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::users)]
 pub struct NewUser {
     pub name: String,
@@ -23,14 +23,14 @@ pub struct UserDay {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::user_days)]
 pub struct NewUserDay {
     pub user_id: i32,
     pub date: NaiveDate,
 }
 
-#[derive(Queryable, Serialize)]
+#[derive(Queryable, Serialize, Debug)]
 pub struct UserHabit {
     pub id: i32,
     pub user_id: i32,
@@ -39,7 +39,7 @@ pub struct UserHabit {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::user_habits)]
 pub struct NewUserHabit {
     pub user_id: i32,
@@ -47,7 +47,7 @@ pub struct NewUserHabit {
     pub weight: i32,
 }
 
-#[derive(Queryable, Serialize)]
+#[derive(Queryable, Serialize, Debug)]
 pub struct HabitValue {
     pub id: i32,
     pub habit_id: i32,
@@ -55,14 +55,14 @@ pub struct HabitValue {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::habit_values)]
 pub struct NewHabitValue {
     pub habit_id: i32,
     pub color: String,
 }
 
-#[derive(Queryable, Serialize)]
+#[derive(Queryable, Serialize, Debug)]
 pub struct DayValue {
     pub id: i32,
     pub value_id: i32,
@@ -70,7 +70,7 @@ pub struct DayValue {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::day_values)]
 pub struct NewDayValue {
     pub value_id: i32,
