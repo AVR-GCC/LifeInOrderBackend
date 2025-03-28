@@ -4,6 +4,6 @@ CREATE TABLE user_habits (
     name VARCHAR NOT NULL,
     weight INTEGER NOT NULL,
     type VARCHAR NOT NULL DEFAULT 'color',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT valid_type CHECK (type IN ('color', 'text', 'number'))
 );

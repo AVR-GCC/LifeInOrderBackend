@@ -7,7 +7,7 @@ diesel::table! {
         user_day_id -> Int4,
         text -> Nullable<Varchar>,
         number -> Nullable<Int4>,
-        created_at -> Nullable<Timestamp>,
+        created_at -> Timestamp,
     }
 }
 
@@ -16,7 +16,7 @@ diesel::table! {
         id -> Int4,
         habit_id -> Int4,
         color -> Nullable<Varchar>,
-        created_at -> Nullable<Timestamp>,
+        created_at -> Timestamp,
     }
 }
 
@@ -37,7 +37,7 @@ diesel::table! {
         weight -> Int4,
         #[sql_name = "type"]
         type_ -> Varchar,
-        created_at -> Nullable<Timestamp>,
+        created_at -> Timestamp,
     }
 }
 
