@@ -98,6 +98,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default())
             .service(hello)
             .service(echo)
+            .service(create_user)
+            .service(create_user_day)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
