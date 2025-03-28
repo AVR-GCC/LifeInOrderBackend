@@ -12,6 +12,7 @@ pub struct User {
 #[diesel(table_name = crate::db::schema::users)]
 pub struct NewUser {
     pub name: String,
+    pub email: String
 }
 
 #[derive(Debug, Queryable, Serialize)]
