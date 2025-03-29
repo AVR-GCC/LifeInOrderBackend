@@ -95,8 +95,9 @@ async fn main() -> std::io::Result<()> {
     conn.run_pending_migrations(MIGRATIONS).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     // run
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
+            .app_data(web::Data::new(pool.clone()))
             .wrap(Logger::default())
             .service(hello)
             .service(echo)
