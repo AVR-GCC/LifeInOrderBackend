@@ -3,7 +3,7 @@ CREATE TABLE user_habits (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR NOT NULL,
     weight INTEGER NOT NULL,
-    type VARCHAR NOT NULL DEFAULT 'color',
+    habit_type VARCHAR NOT NULL DEFAULT 'color',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT valid_type CHECK (type IN ('color', 'text', 'number'))
+    CONSTRAINT valid_type CHECK (habit_type IN ('color', 'text', 'number'))
 );

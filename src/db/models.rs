@@ -38,6 +38,7 @@ pub struct UserHabit {
     pub user_id: i32,
     pub name: String,
     pub weight: i32,
+    pub habit_type: String,
     pub created_at: NaiveDateTime,
 }
 
@@ -47,6 +48,7 @@ pub struct NewUserHabit {
     pub user_id: i32,
     pub name: String,
     pub weight: i32,
+    pub habit_type: String,
 }
 
 #[derive(Queryable, Serialize, Debug)]
