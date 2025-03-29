@@ -44,8 +44,10 @@ async fn create_user(
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user = req_body.into_inner();
     debug!("Creating user: {:?}", new_user);
-
-    let mut conn = pool.get().map_err(actix_web::error::ErrorInternalServerError)?;
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
     let inserted = diesel::insert_into(users)
         .values(&new_user)
         .returning((crate::db::schema::users::dsl::id, name, email, crate::db::schema::users::dsl::created_at))
