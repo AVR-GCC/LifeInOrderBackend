@@ -12,8 +12,8 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use diesel::pg::PgConnection;
 
-use crate::db::schema::{user_days::dsl::*, users::dsl::*};
-use crate::db::models::{User, NewUser, UserDay, NewUserDay};
+use crate::db::schema::{user_days::dsl::*, users::dsl::*, user_habits::dsl::*};
+use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit};
 mod db;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -50,7 +50,12 @@ async fn create_user(
     })?;
     let inserted = diesel::insert_into(users)
         .values(&new_user)
-        .returning((crate::db::schema::users::dsl::id, name, email, crate::db::schema::users::dsl::created_at))
+        .returning((
+                crate::db::schema::users::dsl::id,
+                crate::db::schema::users::dsl::name,
+                email,
+                crate::db::schema::users::dsl::created_at
+        ))
         .get_result::<User>(&mut conn)
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -73,6 +78,33 @@ async fn create_user_day(
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     debug!("Inserted user_day: {:?}", inserted);
+    Ok(HttpResponse::Ok().json(inserted))
+}
+
+#[post("/user_habits")]
+async fn create_user_habit(
+    pool: web::Data<DbPool>,
+    req_body: web::Json<NewUserHabit>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let new_user_habit = req_body.into_inner();
+    debug!(
+        "Creating user_habit for user_id: {}, name: {:?}, weight: {}",
+        new_user_habit.user_id, new_user_habit.name, new_user_habit.weight
+    );
+
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+    let inserted = diesel::insert_into(user_habits)
+        .values(&new_user_habit)
+        .get_result::<UserHabit>(&mut conn)
+        .map_err(|e| {
+            debug!("Insert error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+
+    debug!("Inserted user_habit: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -103,6 +135,7 @@ async fn main() -> std::io::Result<()> {
             .service(echo)
             .service(create_user)
             .service(create_user_day)
+            .service(create_user_habit)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
