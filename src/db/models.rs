@@ -112,8 +112,8 @@ pub struct DayValue {
     pub id: i32,
     pub value_id: i32,
     pub user_day_id: i32,
-    pub text: String,
-    pub number: i32,
+    pub text: Option<String>,
+    pub number: Option<i32>,
     pub created_at: NaiveDateTime,
 }
 
@@ -122,6 +122,6 @@ pub struct DayValue {
 pub struct NewDayValue {
     pub value_id: i32,
     pub user_day_id: i32,
-    pub text: String,
-    pub number: i32,
+    pub text: Option<String>,
+    pub number: Option<i32>,
 }

@@ -12,8 +12,8 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use diesel::pg::PgConnection;
 
-use crate::db::schema::{user_days::dsl::*, users::dsl::*, user_habits::dsl::*, habit_values::dsl::*};
-use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue};
+use crate::db::schema::{user_days::dsl::*, users::dsl::*, user_habits::dsl::*, habit_values::dsl::*, day_values::dsl::*};
+use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue};
 mod db;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -135,6 +135,27 @@ async fn create_habit_value(
     Ok(HttpResponse::Ok().json(inserted))
 }
 
+#[post("/day_values")]
+async fn create_day_value(
+    pool: web::Data<DbPool>,
+    req_body: web::Json<NewDayValue>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let new_day_value = req_body.into_inner();
+    debug!(
+        "Creating day_value for value_id: {}, user_day_id: {}, text: {}, number: {}",
+        new_day_value.value_id, new_day_value.user_day_id, new_day_value.text.clone().unwrap_or("".to_string()), new_day_value.number.clone().unwrap_or(0)
+    );
+
+    let mut conn = pool.get().map_err(actix_web::error::ErrorInternalServerError)?;
+    let inserted = diesel::insert_into(day_values)
+        .values(&new_day_value)
+        .get_result::<DayValue>(&mut conn)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    debug!("Inserted day_value: {:?}", inserted);
+    Ok(HttpResponse::Ok().json(inserted))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // logger
@@ -164,6 +185,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_user_day)
             .service(create_user_habit)
             .service(create_habit_value)
+            .service(create_day_value)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
