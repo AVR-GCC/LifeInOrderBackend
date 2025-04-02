@@ -96,7 +96,7 @@ pub struct NewUserHabit {
 pub struct HabitValue {
     pub id: i32,
     pub habit_id: i32,
-    pub color: String,
+    pub color: Option<String>,
     pub created_at: NaiveDateTime,
 }
 
@@ -104,7 +104,7 @@ pub struct HabitValue {
 #[diesel(table_name = crate::db::schema::habit_values)]
 pub struct NewHabitValue {
     pub habit_id: i32,
-    pub color: String,
+    pub color: Option<String>,
 }
 
 #[derive(Queryable, Serialize, Debug)]
