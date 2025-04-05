@@ -8,6 +8,14 @@ use diesel::sql_types::Text;
 use serde::{Serialize, Deserialize};
 use chrono::{NaiveDate, NaiveDateTime};
 
+#[derive(Serialize)]
+pub struct HabitColorDisplay {
+    pub habit_id: i32,
+    pub habit_name: String,
+    pub weight: i32,
+    pub colors: Vec<Option<String>>,
+}
+
 #[derive(Queryable, Serialize, Debug)]
 pub struct User {
     pub id: i32,

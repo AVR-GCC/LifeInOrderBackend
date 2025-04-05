@@ -2,7 +2,9 @@ mod config;
 use crate::config::Config;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, middleware::Logger};
 use serde::Serialize;
+use chrono::NaiveDate;
 use log::debug;
+use std::collections::HashMap;
 
 #[macro_use]
 extern crate diesel_migrations;
@@ -13,7 +15,7 @@ use diesel::r2d2::{self, ConnectionManager};
 use diesel::pg::PgConnection;
 
 use crate::db::schema::{user_days::dsl::*, users::dsl::*, user_habits::dsl::*, habit_values::dsl::*, day_values::dsl::*};
-use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue};
+use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, HabitColorDisplay};
 mod db;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -156,6 +158,59 @@ async fn create_day_value(
     Ok(HttpResponse::Ok().json(inserted))
 }
 
+#[get("/users/{path_user_id}/habit_colors")]
+async fn get_habit_colors(
+    pool: web::Data<DbPool>,
+    path_user_id: web::Path<i32>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let inner_user_id = path_user_id.into_inner();
+    debug!("Fetching habit colors for user_id: {}", inner_user_id);
+
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+    let _test = crate::db::schema::habit_values::habit_id;
+
+    let habit_data = user_habits
+        .inner_join(habit_values.on(crate::db::schema::habit_values::habit_id.eq(crate::db::schema::user_habits::id)))
+        .inner_join(day_values.on(crate::db::schema::day_values::value_id.eq(crate::db::schema::habit_values::id)))
+        .inner_join(user_days.on(crate::db::schema::user_days::id.eq(crate::db::schema::day_values::user_day_id)))
+        .filter(crate::db::schema::user_habits::user_id.eq(inner_user_id))
+        .filter(crate::db::schema::user_habits::habit_type.eq("color"))
+        .select((
+            crate::db::schema::user_habits::id,
+            crate::db::schema::user_habits::name,
+            crate::db::schema::user_habits::weight,
+            crate::db::schema::habit_values::color,
+            crate::db::schema::user_days::date,
+        ))
+        .order(crate::db::schema::user_days::date.asc())
+        .load::<(i32, String, i32, Option<String>, NaiveDate)>(&mut conn)
+        .map_err(|e| {
+            debug!("Query error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+
+    let mut habit_map: HashMap<i32, HabitColorDisplay> = HashMap::new();
+    for (data_habit_id, data_habit_name, data_weight, data_color, _date) in habit_data {
+        habit_map
+            .entry(data_habit_id)
+            .or_insert(HabitColorDisplay {
+                habit_id: data_habit_id,
+                habit_name: data_habit_name,
+                weight: data_weight,
+                colors: Vec::new(),
+            })
+            .colors
+            .push(data_color);
+    }
+
+    let result: Vec<HabitColorDisplay> = habit_map.into_values().collect();
+    debug!("Returning {} habits with colors", result.len());
+    Ok(HttpResponse::Ok().json(result))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // logger
@@ -186,6 +241,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_user_habit)
             .service(create_habit_value)
             .service(create_day_value)
+            .service(get_habit_colors)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
