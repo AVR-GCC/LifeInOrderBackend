@@ -14,7 +14,11 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use diesel::pg::PgConnection;
 
-use crate::db::schema::{user_days::dsl::*, users::dsl::*, user_habits::dsl::*, habit_values::dsl::*, day_values::dsl::*};
+use crate::db::schema::user_days::dsl::{user_days, id as ud_id, date as ud_date};
+use crate::db::schema::users::dsl::{users, id as u_id, name as u_name, email as u_email, created_at as u_created_at};
+use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight};
+use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id, color as hv_color};
+use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, user_day_id as dv_user_day_id};
 use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, HabitColorDisplay};
 mod db;
 
@@ -39,6 +43,7 @@ async fn manual_hello() -> impl Responder {
     let response = Message { content: String::from("Hey there biitccchh!") };
     HttpResponse::Ok().json(response)
 }
+
 #[post("/users")]
 async fn create_user(
     pool: web::Data<DbPool>,
@@ -52,12 +57,7 @@ async fn create_user(
     })?;
     let inserted = diesel::insert_into(users)
         .values(&new_user)
-        .returning((
-                crate::db::schema::users::dsl::id,
-                crate::db::schema::users::dsl::name,
-                email,
-                crate::db::schema::users::dsl::created_at
-        ))
+        .returning((u_id, u_name, u_email, u_created_at))
         .get_result::<User>(&mut conn)
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -170,22 +170,15 @@ async fn get_habit_colors(
         debug!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
-    let _test = crate::db::schema::habit_values::habit_id;
 
     let habit_data = user_habits
-        .inner_join(habit_values.on(crate::db::schema::habit_values::habit_id.eq(crate::db::schema::user_habits::id)))
-        .inner_join(day_values.on(crate::db::schema::day_values::value_id.eq(crate::db::schema::habit_values::id)))
-        .inner_join(user_days.on(crate::db::schema::user_days::id.eq(crate::db::schema::day_values::user_day_id)))
-        .filter(crate::db::schema::user_habits::user_id.eq(inner_user_id))
-        .filter(crate::db::schema::user_habits::habit_type.eq("color"))
-        .select((
-            crate::db::schema::user_habits::id,
-            crate::db::schema::user_habits::name,
-            crate::db::schema::user_habits::weight,
-            crate::db::schema::habit_values::color,
-            crate::db::schema::user_days::date,
-        ))
-        .order(crate::db::schema::user_days::date.asc())
+        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
+        .inner_join(day_values.on(dv_value_id.eq(hv_id)))
+        .inner_join(user_days.on(ud_id.eq(dv_user_day_id)))
+        .filter(uh_user_id.eq(inner_user_id))
+        .filter(uh_habit_type.eq("color"))
+        .select(( uh_id, uh_name, uh_weight, hv_color, ud_date ))
+        .order(ud_date.asc())
         .load::<(i32, String, i32, Option<String>, NaiveDate)>(&mut conn)
         .map_err(|e| {
             debug!("Query error: {:?}", e);
