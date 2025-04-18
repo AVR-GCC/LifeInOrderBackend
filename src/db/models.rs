@@ -9,11 +9,17 @@ use serde::{Serialize, Deserialize};
 use chrono::{NaiveDate, NaiveDateTime};
 
 #[derive(Serialize)]
+pub struct DayColor {
+    pub color: Option<String>,
+    pub date: NaiveDate,
+}
+
+#[derive(Serialize)]
 pub struct HabitColorDisplay {
     pub habit_id: i32,
     pub habit_name: String,
     pub weight: i32,
-    pub colors: Vec<Option<String>>,
+    pub day_colors: Vec<DayColor>,
 }
 
 #[derive(Queryable, Serialize, Debug)]
@@ -97,6 +103,7 @@ pub struct NewUserHabit {
     pub user_id: i32,
     pub name: String,
     pub weight: i32,
+    pub sequence: i32,
     pub habit_type: String,
 }
 

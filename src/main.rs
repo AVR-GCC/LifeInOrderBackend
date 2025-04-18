@@ -19,7 +19,7 @@ use crate::db::schema::users::dsl::{users, id as u_id, name as u_name, email as 
 use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight};
 use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id, color as hv_color};
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, user_day_id as dv_user_day_id};
-use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, HabitColorDisplay};
+use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, DayColor, HabitColorDisplay};
 mod db;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -185,18 +185,19 @@ async fn get_habit_colors(
             actix_web::error::ErrorInternalServerError(e)
         })?;
 
+    dbg!("{}", &habit_data);
     let mut habit_map: HashMap<i32, HabitColorDisplay> = HashMap::new();
-    for (data_habit_id, data_habit_name, data_weight, data_color, _date) in habit_data {
+    for (data_habit_id, data_habit_name, data_weight, data_color, date) in habit_data {
         habit_map
             .entry(data_habit_id)
             .or_insert(HabitColorDisplay {
                 habit_id: data_habit_id,
                 habit_name: data_habit_name,
                 weight: data_weight,
-                colors: Vec::new(),
+                day_colors: Vec::new(),
             })
-            .colors
-            .push(data_color);
+            .day_colors
+            .push(DayColor { date, color: data_color });
     }
 
     let result: Vec<HabitColorDisplay> = habit_map.into_values().collect();
