@@ -35,6 +35,7 @@ diesel::table! {
         user_id -> Int4,
         name -> Varchar,
         weight -> Int4,
+        sequence -> Int4,
         habit_type -> Varchar,
         created_at -> Timestamp,
     }

@@ -16,7 +16,7 @@ use diesel::pg::PgConnection;
 
 use crate::db::schema::user_days::dsl::{user_days, id as ud_id, date as ud_date};
 use crate::db::schema::users::dsl::{users, id as u_id, name as u_name, email as u_email, created_at as u_created_at};
-use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight};
+use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight, sequence as uh_sequence};
 use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id, color as hv_color};
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, user_day_id as dv_user_day_id};
 use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, DayColor, HabitColorDisplay};
@@ -90,8 +90,8 @@ async fn create_user_habit(
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user_habit = req_body.into_inner();
     debug!(
-        "Creating user_habit for user_id: {}, name: {:?}, weight: {}",
-        new_user_habit.user_id, new_user_habit.name, new_user_habit.weight
+        "Creating user_habit for user_id: {}, name: {:?}, weight: {}, sequence: {}",
+        new_user_habit.user_id, new_user_habit.name, new_user_habit.weight, new_user_habit.sequence
     );
 
     let mut conn = pool.get().map_err(|e| {
@@ -177,9 +177,9 @@ async fn get_habit_colors(
         .inner_join(user_days.on(ud_id.eq(dv_user_day_id)))
         .filter(uh_user_id.eq(inner_user_id))
         .filter(uh_habit_type.eq("color"))
-        .select(( uh_id, uh_name, uh_weight, hv_color, ud_date ))
+        .select(( uh_id, uh_name, uh_weight, hv_color, uh_sequence, ud_date ))
         .order(ud_date.asc())
-        .load::<(i32, String, i32, Option<String>, NaiveDate)>(&mut conn)
+        .load::<(i32, String, i32, Option<String>, i32, NaiveDate)>(&mut conn)
         .map_err(|e| {
             debug!("Query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -187,20 +187,22 @@ async fn get_habit_colors(
 
     dbg!("{}", &habit_data);
     let mut habit_map: HashMap<i32, HabitColorDisplay> = HashMap::new();
-    for (data_habit_id, data_habit_name, data_weight, data_color, date) in habit_data {
+    for (data_habit_id, data_habit_name, data_weight, data_color, data_sequence, date) in habit_data {
         habit_map
             .entry(data_habit_id)
             .or_insert(HabitColorDisplay {
                 habit_id: data_habit_id,
                 habit_name: data_habit_name,
                 weight: data_weight,
+                sequence: data_sequence,
                 day_colors: Vec::new(),
             })
             .day_colors
             .push(DayColor { date, color: data_color });
     }
 
-    let result: Vec<HabitColorDisplay> = habit_map.into_values().collect();
+    let mut result: Vec<HabitColorDisplay> = habit_map.into_values().collect();
+    result.sort_by_key(|habit| habit.sequence);
     debug!("Returning {} habits with colors", result.len());
     Ok(HttpResponse::Ok().json(result))
 }

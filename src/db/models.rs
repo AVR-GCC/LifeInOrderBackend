@@ -19,6 +19,7 @@ pub struct HabitColorDisplay {
     pub habit_id: i32,
     pub habit_name: String,
     pub weight: i32,
+    pub sequence: i32,
     pub day_colors: Vec<DayColor>,
 }
 
@@ -92,6 +93,7 @@ pub struct UserHabit {
     pub user_id: i32,
     pub name: String,
     pub weight: i32,
+    pub sequence: i32,
     #[diesel(sql_type = Text)]
     pub habit_type: String,
     pub created_at: NaiveDateTime,
