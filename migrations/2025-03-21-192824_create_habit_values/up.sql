@@ -1,5 +1,7 @@
 CREATE TABLE habit_values (
     id SERIAL PRIMARY KEY,
+    label VARCHAR,
+    sequence INTEGER NOT NULL,
     habit_id INTEGER NOT NULL REFERENCES user_habits(id) ON DELETE CASCADE,
     color VARCHAR,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL

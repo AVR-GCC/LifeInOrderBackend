@@ -14,6 +14,8 @@ diesel::table! {
 diesel::table! {
     habit_values (id) {
         id -> Int4,
+        label -> Nullable<Varchar>,
+        sequence -> Int4,
         habit_id -> Int4,
         color -> Nullable<Varchar>,
         created_at -> Timestamp,

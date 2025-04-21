@@ -112,6 +112,8 @@ pub struct NewUserHabit {
 #[derive(Queryable, Serialize, Debug)]
 pub struct HabitValue {
     pub id: i32,
+    pub label: Option<String>,
+    pub sequence: i32,
     pub habit_id: i32,
     pub color: Option<String>,
     pub created_at: NaiveDateTime,
@@ -121,6 +123,8 @@ pub struct HabitValue {
 #[diesel(table_name = crate::db::schema::habit_values)]
 pub struct NewHabitValue {
     pub habit_id: i32,
+    pub label: Option<String>,
+    pub sequence: i32,
     pub color: Option<String>,
 }
 
