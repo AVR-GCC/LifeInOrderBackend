@@ -3,6 +3,7 @@ use crate::config::Config;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, middleware::Logger};
 use serde::Serialize;
 use chrono::NaiveDate;
+use chrono::NaiveDateTime;
 use log::debug;
 use std::collections::HashMap;
 
@@ -17,9 +18,9 @@ use diesel::pg::PgConnection;
 use crate::db::schema::user_days::dsl::{user_days, id as ud_id, date as ud_date};
 use crate::db::schema::users::dsl::{users, id as u_id, name as u_name, email as u_email, created_at as u_created_at};
 use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight, sequence as uh_sequence};
-use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id, color as hv_color};
+use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, label as hv_label, sequence as hv_sequence, habit_id as hv_habit_id, color as hv_color, created_at as hv_created_at};
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, user_day_id as dv_user_day_id};
-use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, DayColor, HabitColorDisplay};
+use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, DayColor, HabitColorDisplay, HabitDetails};
 mod db;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -207,6 +208,58 @@ async fn get_user_list(
     Ok(HttpResponse::Ok().json(result))
 }
 
+#[get("/users/{path_user_id}/habit_values")]
+async fn get_habit_values(
+    pool: web::Data<DbPool>,
+    path_user_id: web::Path<i32>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let inner_user_id = path_user_id.into_inner();
+    debug!("Fetching habit values for user_id: {}", inner_user_id);
+
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+
+    let habit_data = user_habits
+        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
+        .select(( uh_id, uh_name, uh_weight, uh_sequence, hv_id, hv_label, hv_sequence, hv_color, hv_created_at ))
+        .order(uh_sequence.asc())
+        .load::<(i32, String, i32, i32, i32, Option<String>, i32, Option<String>, NaiveDateTime)>(&mut conn)
+        .map_err(|e| {
+            debug!("Query error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+
+    dbg!("{}", &habit_data);
+    let mut habit_map: HashMap<i32, HabitDetails> = HashMap::new();
+    for (data_uh_id, data_uh_name, data_uh_weight, data_uh_sequence, data_hv_id, data_hv_label, data_hv_sequence, data_hv_color, data_hv_created_at) in habit_data {
+        habit_map
+            .entry(data_uh_id)
+            .or_insert(HabitDetails {
+                habit_id: data_uh_id,
+                habit_name: data_uh_name,
+                weight: data_uh_weight,
+                sequence: data_uh_sequence,
+                values: Vec::new(),
+            })
+            .values
+            .push(HabitValue {
+                id: data_hv_id,
+                label: data_hv_label,
+                sequence: data_hv_sequence,
+                habit_id: data_uh_id,
+                color: data_hv_color,
+                created_at: data_hv_created_at 
+            });
+    }
+
+    let mut result: Vec<HabitDetails> = habit_map.into_values().collect();
+    result.sort_by_key(|habit| habit.sequence);
+    debug!("Returning {} habits with values", result.len());
+    Ok(HttpResponse::Ok().json(result))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // logger
@@ -238,6 +291,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_habit_value)
             .service(create_day_value)
             .service(get_user_list)
+            .service(get_habit_values)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?

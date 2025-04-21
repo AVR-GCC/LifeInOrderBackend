@@ -119,6 +119,15 @@ pub struct HabitValue {
     pub created_at: NaiveDateTime,
 }
 
+#[derive(Serialize)]
+pub struct HabitDetails {
+    pub habit_id: i32,
+    pub habit_name: String,
+    pub weight: i32,
+    pub sequence: i32,
+    pub values: Vec<HabitValue>,
+}
+
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::habit_values)]
 pub struct NewHabitValue {
