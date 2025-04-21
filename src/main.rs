@@ -158,13 +158,13 @@ async fn create_day_value(
     Ok(HttpResponse::Ok().json(inserted))
 }
 
-#[get("/users/{path_user_id}/habit_colors")]
-async fn get_habit_colors(
+#[get("/users/{path_user_id}/list")]
+async fn get_user_list(
     pool: web::Data<DbPool>,
     path_user_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_user_id = path_user_id.into_inner();
-    debug!("Fetching habit colors for user_id: {}", inner_user_id);
+    debug!("Fetching list for user_id: {}", inner_user_id);
 
     let mut conn = pool.get().map_err(|e| {
         debug!("Pool error: {:?}", e);
@@ -237,7 +237,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_user_habit)
             .service(create_habit_value)
             .service(create_day_value)
-            .service(get_habit_colors)
+            .service(get_user_list)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
