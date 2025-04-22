@@ -20,7 +20,7 @@ use crate::db::schema::users::dsl::{users, id as u_id, name as u_name, email as 
 use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight, sequence as uh_sequence};
 use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, label as hv_label, sequence as hv_sequence, habit_id as hv_habit_id, color as hv_color, created_at as hv_created_at};
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, user_day_id as dv_user_day_id};
-use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, DayColor, HabitColorDisplay, HabitDetails};
+use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, HabitDetails, UserListResponse};
 mod db;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
@@ -160,104 +160,91 @@ async fn create_day_value(
 }
 
 #[get("/users/{path_user_id}/list")]
-async fn get_user_list(
-    pool: web::Data<DbPool>,
-    path_user_id: web::Path<i32>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let inner_user_id = path_user_id.into_inner();
-    debug!("Fetching list for user_id: {}", inner_user_id);
-
-    let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
-
-    let habit_data = user_habits
-        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
-        .inner_join(day_values.on(dv_value_id.eq(hv_id)))
-        .inner_join(user_days.on(ud_id.eq(dv_user_day_id)))
-        .filter(uh_user_id.eq(inner_user_id))
-        .filter(uh_habit_type.eq("color"))
-        .select(( uh_id, uh_name, uh_weight, hv_color, uh_sequence, ud_date ))
-        .order(ud_date.asc())
-        .load::<(i32, String, i32, Option<String>, i32, NaiveDate)>(&mut conn)
-        .map_err(|e| {
-            debug!("Query error: {:?}", e);
-            actix_web::error::ErrorInternalServerError(e)
-        })?;
-
-    dbg!("{}", &habit_data);
-    let mut habit_map: HashMap<i32, HabitColorDisplay> = HashMap::new();
-    for (data_habit_id, data_habit_name, data_weight, data_color, data_sequence, date) in habit_data {
-        habit_map
-            .entry(data_habit_id)
-            .or_insert(HabitColorDisplay {
-                habit_id: data_habit_id,
-                habit_name: data_habit_name,
-                weight: data_weight,
-                sequence: data_sequence,
-                day_colors: Vec::new(),
-            })
-            .day_colors
-            .push(DayColor { date, color: data_color });
-    }
-
-    let mut result: Vec<HabitColorDisplay> = habit_map.into_values().collect();
-    result.sort_by_key(|habit| habit.sequence);
-    debug!("Returning {} habits with colors", result.len());
-    Ok(HttpResponse::Ok().json(result))
-}
-
-#[get("/users/{path_user_id}/habit_values")]
 async fn get_habit_values(
     pool: web::Data<DbPool>,
     path_user_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_user_id = path_user_id.into_inner();
-    debug!("Fetching habit values for user_id: {}", inner_user_id);
+    debug!("Fetching user list for user_id: {}", inner_user_id);
 
     let mut conn = pool.get().map_err(|e| {
         debug!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
 
+    // Fetch data
     let habit_data = user_habits
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
-        .select(( uh_id, uh_name, uh_weight, uh_sequence, hv_id, hv_label, hv_sequence, hv_color, hv_created_at ))
-        .order(uh_sequence.asc())
-        .load::<(i32, String, i32, i32, i32, Option<String>, i32, Option<String>, NaiveDateTime)>(&mut conn)
+        .inner_join(day_values.on(dv_value_id.eq(hv_id)))
+        .inner_join(user_days.on(ud_id.eq(dv_user_day_id)))
+        .filter(uh_user_id.eq(inner_user_id))
+        .select((
+            uh_id,
+            ud_date,
+            dv_value_id,
+        ))
+        .order(ud_date.asc())
+        .load::<(i32, NaiveDate, i32)>(&mut conn)
         .map_err(|e| {
             debug!("Query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
 
-    dbg!("{}", &habit_data);
-    let mut habit_map: HashMap<i32, HabitDetails> = HashMap::new();
-    for (data_uh_id, data_uh_name, data_uh_weight, data_uh_sequence, data_hv_id, data_hv_label, data_hv_sequence, data_hv_color, data_hv_created_at) in habit_data {
-        habit_map
-            .entry(data_uh_id)
-            .or_insert(HabitDetails {
-                habit_id: data_uh_id,
-                habit_name: data_uh_name,
-                weight: data_uh_weight,
-                sequence: data_uh_sequence,
-                values: Vec::new(),
-            })
-            .values
-            .push(HabitValue {
-                id: data_hv_id,
-                label: data_hv_label,
-                sequence: data_hv_sequence,
-                habit_id: data_uh_id,
-                color: data_hv_color,
-                created_at: data_hv_created_at 
-            });
+    let habit_value = user_habits
+        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
+        .filter(uh_user_id.eq(inner_user_id))
+        .select((
+            uh_id,
+            uh_name,
+            uh_weight,
+            uh_sequence,
+            uh_habit_type,
+            hv_id,
+            hv_label,
+            hv_sequence,
+            hv_color,
+            hv_created_at
+        ))
+        .load::<(i32, String, i32, i32, String, i32, Option<String>, i32, Option<String>, NaiveDateTime)>(&mut conn)
+        .map_err(|e| {
+            debug!("Query error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+    // Build response
+    let mut dates: HashMap<String, HashMap<i32, i32>> = HashMap::new();
+    let mut habits: HashMap<i32, HabitDetails> = HashMap::new();
+
+    for (habit_id, date, day_value_id) in habit_data {
+        // Dates: date -> habit_id -> day_value_id
+        let date_str = date.to_string();
+        dates
+            .entry(date_str)
+            .or_insert_with(HashMap::new)
+            .insert(habit_id, day_value_id);
     }
 
-    let mut result: Vec<HabitDetails> = habit_map.into_values().collect();
-    result.sort_by_key(|habit| habit.sequence);
-    debug!("Returning {} habits with values", result.len());
-    Ok(HttpResponse::Ok().json(result))
+    for (habit_id, habit_name, habit_weight, habit_sequence, habit_type, value_id, value_label, value_sequence, value_color, value_created_at) in habit_value {
+        // Habits: habit_id -> details with values
+        let habit_entry = habits.entry(habit_id).or_insert(HabitDetails {
+            name: habit_name,
+            weight: habit_weight,
+            sequence: habit_sequence,
+            habit_type,
+            values: HashMap::new(),
+        });
+        habit_entry.values.insert(value_id, HabitValue {
+            id: value_id,
+            label: value_label,
+            sequence: value_sequence,
+            habit_id,
+            color: value_color,
+            created_at: value_created_at,
+        });
+    }
+
+    let response = UserListResponse { dates, habits };
+    debug!("Returning user list with {} dates, {} habits", response.dates.len(), response.habits.len());
+    Ok(HttpResponse::Ok().json(response))
 }
 
 #[actix_web::main]
@@ -290,7 +277,6 @@ async fn main() -> std::io::Result<()> {
             .service(create_user_habit)
             .service(create_habit_value)
             .service(create_day_value)
-            .service(get_user_list)
             .service(get_habit_values)
             .route("/hey", web::get().to(manual_hello))
     })

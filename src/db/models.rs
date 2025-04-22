@@ -7,6 +7,7 @@ use diesel::pg::Pg;
 use diesel::sql_types::Text;
 use serde::{Serialize, Deserialize};
 use chrono::{NaiveDate, NaiveDateTime};
+use std::collections::HashMap;
 
 #[derive(Serialize)]
 pub struct DayColor {
@@ -119,15 +120,6 @@ pub struct HabitValue {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Serialize)]
-pub struct HabitDetails {
-    pub habit_id: i32,
-    pub habit_name: String,
-    pub weight: i32,
-    pub sequence: i32,
-    pub values: Vec<HabitValue>,
-}
-
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::habit_values)]
 pub struct NewHabitValue {
@@ -154,4 +146,19 @@ pub struct NewDayValue {
     pub user_day_id: i32,
     pub text: Option<String>,
     pub number: Option<i32>,
+}
+
+#[derive(Serialize)]
+pub struct HabitDetails {
+    pub name: String,
+    pub weight: i32,
+    pub sequence: i32,
+    pub habit_type: String,
+    pub values: HashMap<i32, HabitValue>,
+}
+
+#[derive(Serialize)]
+pub struct UserListResponse {
+    pub dates: HashMap<String, HashMap<i32, i32>>,
+    pub habits: HashMap<i32, HabitDetails>,
 }
