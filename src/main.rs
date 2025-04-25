@@ -17,11 +17,13 @@ use diesel::pg::PgConnection;
 
 use crate::db::schema::user_days::dsl::{user_days, id as ud_id, date as ud_date};
 use crate::db::schema::users::dsl::{users, id as u_id, name as u_name, email as u_email, created_at as u_created_at};
-use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight, sequence as uh_sequence};
+use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight, sequence as uh_sequence, created_at as uh_created_at};
 use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, label as hv_label, sequence as hv_sequence, habit_id as hv_habit_id, color as hv_color, created_at as hv_created_at};
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, user_day_id as dv_user_day_id};
-use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue, HabitDetails, UserListResponse};
+use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue};
+use crate::utils::misc_types::{UserListResponse, ExtendedUserHabit, DayValuesStruct};
 mod db;
+mod utils;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
@@ -194,45 +196,55 @@ async fn get_habit_values(
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .filter(uh_user_id.eq(inner_user_id))
         .select((
-            uh_id,
-            uh_name,
-            uh_weight,
-            uh_sequence,
-            uh_habit_type,
-            hv_id,
-            hv_label,
-            hv_sequence,
-            hv_color,
-            hv_created_at
+            uh_id, uh_name, uh_weight, uh_sequence, uh_habit_type, uh_user_id, uh_created_at,
+            hv_id, hv_label, hv_sequence, hv_color, hv_created_at
         ))
-        .load::<(i32, String, i32, i32, String, i32, Option<String>, i32, Option<String>, NaiveDateTime)>(&mut conn)
+        .load::<(
+            i32, String, i32, i32, String, i32, NaiveDateTime,
+            i32, Option<String>, i32, Option<String>, NaiveDateTime
+        )>(&mut conn)
         .map_err(|e| {
             debug!("Query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
     // Build response
-    let mut dates: HashMap<String, HashMap<i32, i32>> = HashMap::new();
-    let mut habits: HashMap<i32, HabitDetails> = HashMap::new();
+    let mut dates_map: HashMap<String, HashMap<i32, i32>> = HashMap::new();
+    let mut habits_map: HashMap<i32, ExtendedUserHabit> = HashMap::new();
 
     for (habit_id, date, day_value_id) in habit_data {
         // Dates: date -> habit_id -> day_value_id
         let date_str = date.to_string();
-        dates
+        dates_map
             .entry(date_str)
             .or_insert_with(HashMap::new)
             .insert(habit_id, day_value_id);
     }
 
-    for (habit_id, habit_name, habit_weight, habit_sequence, habit_type, value_id, value_label, value_sequence, value_color, value_created_at) in habit_value {
+    let mut dates: Vec<DayValuesStruct> = dates_map.into_iter().map(|(key, values)| {
+        let date = key.to_string();
+        DayValuesStruct { date, values }
+    }).collect();
+
+    dates.sort_by(|a, b| a.date.cmp(&b.date));
+
+    for (
+        habit_id, habit_name, habit_weight, habit_sequence, habit_type, habit_user_id, habit_created_at,
+        value_id, value_label, value_sequence, value_color, value_created_at
+    ) in habit_value {
         // Habits: habit_id -> details with values
-        let habit_entry = habits.entry(habit_id).or_insert(HabitDetails {
-            name: habit_name,
-            weight: habit_weight,
-            sequence: habit_sequence,
-            habit_type,
-            values: HashMap::new(),
+        let habit_entry = habits_map.entry(habit_id).or_insert(ExtendedUserHabit {
+            habit: UserHabit {
+                id: habit_id,
+                name: habit_name,
+                weight: habit_weight,
+                sequence: habit_sequence,
+                habit_type,
+                user_id: habit_user_id,
+                created_at: habit_created_at
+            },
+            values: Vec::new(),
         });
-        habit_entry.values.insert(value_id, HabitValue {
+        habit_entry.values.push(HabitValue {
             id: value_id,
             label: value_label,
             sequence: value_sequence,
@@ -241,6 +253,13 @@ async fn get_habit_values(
             created_at: value_created_at,
         });
     }
+
+    let mut habits: Vec<ExtendedUserHabit> = habits_map.into_iter().map(|(_, mut habit)| {
+        habit.values.sort_by(|a, b| a.sequence.cmp(&b.sequence));
+        habit
+    }).collect();
+
+    habits.sort_by(|a, b| a.habit.sequence.cmp(&b.habit.sequence));
 
     let response = UserListResponse { dates, habits };
     debug!("Returning user list with {} dates, {} habits", response.dates.len(), response.habits.len());
