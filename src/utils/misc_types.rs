@@ -6,6 +6,7 @@ use crate::HashMap;
 pub struct ExtendedUserHabit {
     pub habit: UserHabit,
     pub values: Vec<HabitValue>,
+    pub values_hashmap: HashMap<i32, i32>,
 }
 
 #[derive(Serialize)]

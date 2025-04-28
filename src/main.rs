@@ -243,6 +243,7 @@ async fn get_habit_values(
                 created_at: habit_created_at
             },
             values: Vec::new(),
+            values_hashmap: HashMap::new(),
         });
         habit_entry.values.push(HabitValue {
             id: value_id,
@@ -256,6 +257,9 @@ async fn get_habit_values(
 
     let mut habits: Vec<ExtendedUserHabit> = habits_map.into_iter().map(|(_, mut habit)| {
         habit.values.sort_by(|a, b| a.sequence.cmp(&b.sequence));
+        for (index, value) in habit.values.iter().enumerate() {
+            habit.values_hashmap.insert(value.id, index.try_into().unwrap());
+        };
         habit
     }).collect();
 
