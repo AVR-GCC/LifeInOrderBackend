@@ -29,21 +29,6 @@ pub struct NewUser {
     pub email: String
 }
 
-#[derive(Debug, Queryable, Serialize)]
-pub struct UserDay {
-    pub id: i32,
-    pub user_id: i32,
-    pub date: NaiveDate,
-    pub created_at: NaiveDateTime,
-}
-
-#[derive(Insertable, Deserialize, Debug)]
-#[diesel(table_name = crate::db::schema::user_days)]
-pub struct NewUserDay {
-    pub user_id: i32,
-    pub date: NaiveDate,
-}
-
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum HabitType {
@@ -123,17 +108,19 @@ pub struct NewHabitValue {
 pub struct DayValue {
     pub id: i32,
     pub value_id: i32,
-    pub user_day_id: i32,
+    pub habit_id: i32,
+    pub date: NaiveDate,
     pub text: Option<String>,
     pub number: Option<i32>,
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(Insertable, Deserialize, Debug, Clone)]
 #[diesel(table_name = crate::db::schema::day_values)]
 pub struct NewDayValue {
     pub value_id: i32,
-    pub user_day_id: i32,
+    pub habit_id: i32,
+    pub date: NaiveDate,
     pub text: Option<String>,
     pub number: Option<i32>,
 }

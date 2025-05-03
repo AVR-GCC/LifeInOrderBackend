@@ -1,6 +1,7 @@
 mod config;
 use crate::config::Config;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, middleware::Logger};
+use diesel::dsl::now;
 use serde::Serialize;
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
@@ -15,12 +16,11 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use diesel::pg::PgConnection;
 
-use crate::db::schema::user_days::dsl::{user_days, id as ud_id, date as ud_date};
 use crate::db::schema::users::dsl::{users, id as u_id, name as u_name, email as u_email, created_at as u_created_at};
 use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight, sequence as uh_sequence, created_at as uh_created_at};
 use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, label as hv_label, sequence as hv_sequence, habit_id as hv_habit_id, color as hv_color, created_at as hv_created_at};
-use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, user_day_id as dv_user_day_id};
-use crate::db::models::{User, NewUser, UserDay, NewUserDay, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue};
+use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, date as dv_date, habit_id as dv_habit_id, text as dv_text, number as dv_number, created_at as dv_created_at};
+use crate::db::models::{User, NewUser, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue};
 use crate::utils::misc_types::{UserListResponse, ExtendedUserHabit, DayValuesStruct};
 mod db;
 mod utils;
@@ -65,24 +65,6 @@ async fn create_user(
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     debug!("Inserted user: {:?}", inserted);
-    Ok(HttpResponse::Ok().json(inserted))
-}
-
-#[post("/user_days")]
-async fn create_user_day(
-    pool: web::Data<DbPool>,
-    req_body: web::Json<NewUserDay>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let new_user_day = req_body.into_inner();
-    debug!("Creating user_day for user_id: {}, date: {:?}", new_user_day.user_id, new_user_day.date);
-
-    let mut conn = pool.get().map_err(actix_web::error::ErrorInternalServerError)?;
-    let inserted = diesel::insert_into(user_days)
-        .values(&new_user_day)
-        .get_result::<UserDay>(&mut conn)
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    debug!("Inserted user_day: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -146,18 +128,24 @@ async fn create_day_value(
     req_body: web::Json<NewDayValue>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_day_value = req_body.into_inner();
-    debug!(
-        "Creating day_value for value_id: {}, user_day_id: {}, text: {}, number: {}",
-        new_day_value.value_id, new_day_value.user_day_id, new_day_value.text.clone().unwrap_or("".to_string()), new_day_value.number.clone().unwrap_or(0)
+    println!(
+        "Creating day_value for value_id: {}, habit_id: {}, date: {}, text: {}, number: {}",
+        new_day_value.value_id, new_day_value.habit_id, new_day_value.date, new_day_value.text.clone().unwrap_or("".to_string()), new_day_value.number.clone().unwrap_or(0)
     );
-
     let mut conn = pool.get().map_err(actix_web::error::ErrorInternalServerError)?;
     let inserted = diesel::insert_into(day_values)
-        .values(&new_day_value)
+        .values(&new_day_value.clone())
+        .on_conflict((dv_date, dv_habit_id))
+        .do_update()
+        .set((
+            dv_value_id.eq(new_day_value.value_id),
+            dv_text.eq(new_day_value.text),
+            dv_number.eq(new_day_value.number),
+            dv_created_at.eq(now)
+        ))
         .get_result::<DayValue>(&mut conn)
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    debug!("Inserted day_value: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -178,14 +166,13 @@ async fn get_habit_values(
     let habit_data = user_habits
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .inner_join(day_values.on(dv_value_id.eq(hv_id)))
-        .inner_join(user_days.on(ud_id.eq(dv_user_day_id)))
         .filter(uh_user_id.eq(inner_user_id))
         .select((
             uh_id,
-            ud_date,
+            dv_date,
             dv_value_id,
         ))
-        .order(ud_date.asc())
+        .order(dv_date.asc())
         .load::<(i32, NaiveDate, i32)>(&mut conn)
         .map_err(|e| {
             debug!("Query error: {:?}", e);
@@ -296,7 +283,6 @@ async fn main() -> std::io::Result<()> {
             .service(hello)
             .service(echo)
             .service(create_user)
-            .service(create_user_day)
             .service(create_user_habit)
             .service(create_habit_value)
             .service(create_day_value)

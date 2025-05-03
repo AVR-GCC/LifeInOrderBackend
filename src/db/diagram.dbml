@@ -1,0 +1,44 @@
+// Use DBML to define your database structure
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table day_values {
+    id integer [not null]
+    value_id integer [not null]
+    habit_id integer [not null]
+    date timestamp [not null, note: 'Date']
+    text varchar
+    number integer
+    created_at timestamp
+}
+
+Table habit_values {
+    id integer [not null]
+    label varchar
+    sequence integer [not null]
+    habit_id integer [not null]
+    color varchar
+    created_at timestamp
+}
+
+Table user_habits {
+    id integer [not null]
+    user_id integer [not null]
+    name varchar
+    weight integer [not null]
+    sequence integer [not null]
+    habit_type varchar
+    created_at timestamp
+}
+
+Table users {
+    id integer [not null]
+    name varchar
+    email varchar
+    created_at timestamp
+}
+
+Ref: day_values.value_id > habit_values.id
+Ref: day_values.user_id > users.id
+Ref: day_values.habit_id > user_habits.id
+Ref: habit_values.habit_id > user_habits.id
+Ref: user_habits.user_id > users.id
