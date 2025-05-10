@@ -1,6 +1,6 @@
 mod config;
 use crate::config::Config;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, middleware::Logger};
+use actix_web::{get, post, delete, web, App, HttpResponse, HttpServer, Responder, middleware::Logger};
 use diesel::dsl::now;
 use serde::Serialize;
 use chrono::NaiveDate;
@@ -66,6 +66,33 @@ async fn create_user(
 
     debug!("Inserted user: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
+}
+
+#[delete("/user_habits/{id}")]
+async fn delete_user_habit(
+    pool: web::Data<DbPool>,
+    path_user_habit_id: web::Path<i32>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let inner_user_habit_id = path_user_habit_id.into_inner();
+    println!(
+        "Deleting user_habit for user_id: {}, id: {}",
+        "not yet", inner_user_habit_id
+    );
+
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+    let result = diesel::delete(user_habits.filter(uh_id.eq(inner_user_habit_id)))
+        .execute(&mut conn);
+    match result {
+        Ok(0) => Ok(HttpResponse::NotFound().json("User not found")),
+        Ok(_) => Ok(HttpResponse::Ok().json("User deleted")),
+        Err(err) => {
+            eprintln!("Error deleting user: {:?}", err);
+            Ok(HttpResponse::InternalServerError().json("Internal error"))
+        }
+    }
 }
 
 #[post("/user_habits")]
@@ -287,6 +314,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_habit_value)
             .service(create_day_value)
             .service(get_habit_values)
+            .service(delete_user_habit)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
