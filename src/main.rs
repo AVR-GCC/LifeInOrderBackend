@@ -91,7 +91,7 @@ async fn reorder_user_habits(
        let _ = connection.transaction(|conn| {
            for (index, user_habit_id) in user_habit_ids.iter().enumerate() {
                diesel::update(user_habits.filter(uh_id.eq(user_habit_id)))
-                   .set(uh_sequence.eq(index as i32))
+                   .set(uh_sequence.eq(index as i32 + 1))
                    .execute(conn)?;
                }
            diesel::result::QueryResult::Ok(())
