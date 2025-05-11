@@ -1,5 +1,5 @@
 use crate::db::models::{UserHabit, HabitValue};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use crate::HashMap;
 
 #[derive(Serialize)]
@@ -19,4 +19,9 @@ pub struct DayValuesStruct {
 pub struct UserListResponse {
     pub dates: Vec<DayValuesStruct>,
     pub habits: Vec<ExtendedUserHabit>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct SequenceUpdateRequest {
+    pub ordered_user_habit_ids: Vec<i32>,
 }

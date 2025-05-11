@@ -1,11 +1,11 @@
 mod config;
 use crate::config::Config;
-use actix_web::{get, post, delete, web, App, HttpResponse, HttpServer, Responder, middleware::Logger};
+use actix_web::{get, post, delete, web, App, HttpResponse, HttpServer, middleware::Logger};
 use diesel::dsl::now;
-use serde::Serialize;
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
 use log::debug;
+use utils::misc_types::SequenceUpdateRequest;
 use std::collections::HashMap;
 
 #[macro_use]
@@ -26,26 +26,6 @@ mod db;
 mod utils;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
-
-#[derive(Serialize)]
-struct Message {
-    content: String,
-}
-
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello  3  world!")
-}
-
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
-
-async fn manual_hello() -> impl Responder {
-    let response = Message { content: String::from("Hey there biitccchh!") };
-    HttpResponse::Ok().json(response)
-}
 
 #[post("/users")]
 async fn create_user(
@@ -91,6 +71,42 @@ async fn delete_user_habit(
         Err(err) => {
             eprintln!("Error deleting user: {:?}", err);
             Ok(HttpResponse::InternalServerError().json("Internal error"))
+        }
+    }
+}
+
+#[post("/user_habits/reorder")]
+async fn reorder_user_habits(
+    pool: web::Data<DbPool>,
+    req: web::Json<SequenceUpdateRequest>,
+) -> Result<HttpResponse, actix_web::Error> {
+   let user_habit_ids = req.into_inner().ordered_user_habit_ids.clone();
+
+   let result: Result<_, actix_web::Error> = Ok(web::block(move || {
+       let mut connection = pool.get().map_err(|e| {
+           debug!("Pool error: {:?}", e);
+           actix_web::error::ErrorInternalServerError(e)
+       }).expect("Connection to db failed");
+
+       let _ = connection.transaction(|conn| {
+           for (index, user_habit_id) in user_habit_ids.iter().enumerate() {
+               diesel::update(user_habits.filter(uh_id.eq(user_habit_id)))
+                   .set(uh_sequence.eq(index as i32))
+                   .execute(conn)?;
+               }
+           diesel::result::QueryResult::Ok(())
+       }).map_err(|e| {
+           debug!("Pool error: {:?}", e);
+           actix_web::error::ErrorInternalServerError(e)
+       });
+    })
+    .await);
+
+    match result {
+        Ok(_) => Ok(HttpResponse::Ok().json("Sequence updated")),
+        Err(e) => {
+            eprintln!("Error updating sequence: {:?}", e);
+            Ok(HttpResponse::InternalServerError().json("Failed to update sequence"))
         }
     }
 }
@@ -307,15 +323,14 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .wrap(Logger::default())
-            .service(hello)
-            .service(echo)
             .service(create_user)
             .service(create_user_habit)
             .service(create_habit_value)
             .service(create_day_value)
             .service(get_habit_values)
             .service(delete_user_habit)
-            .route("/hey", web::get().to(manual_hello))
+            .service(reorder_user_habits)
+            //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
     .run()
