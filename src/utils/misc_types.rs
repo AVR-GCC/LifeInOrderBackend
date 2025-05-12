@@ -23,5 +23,5 @@ pub struct UserListResponse {
 
 #[derive(Deserialize, Serialize)]
 pub struct SequenceUpdateRequest {
-    pub ordered_user_habit_ids: Vec<i32>,
+    pub ordered_ids: Vec<i32>,
 }

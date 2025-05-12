@@ -80,7 +80,7 @@ async fn reorder_user_habits(
     pool: web::Data<DbPool>,
     req: web::Json<SequenceUpdateRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
-   let user_habit_ids = req.into_inner().ordered_user_habit_ids.clone();
+   let user_habit_ids = req.into_inner().ordered_ids.clone();
 
    let result: Result<_, actix_web::Error> = Ok(web::block(move || {
        let mut connection = pool.get().map_err(|e| {
@@ -163,6 +163,42 @@ async fn create_habit_value(
 
     debug!("Inserted habit_value: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
+}
+
+#[post("/habit_values/reorder")]
+async fn reorder_habit_values(
+    pool: web::Data<DbPool>,
+    req: web::Json<SequenceUpdateRequest>,
+) -> Result<HttpResponse, actix_web::Error> {
+   let habit_value_ids = req.into_inner().ordered_ids.clone();
+
+   let result: Result<_, actix_web::Error> = Ok(web::block(move || {
+       let mut connection = pool.get().map_err(|e| {
+           debug!("Pool error: {:?}", e);
+           actix_web::error::ErrorInternalServerError(e)
+       }).expect("Connection to db failed");
+
+       let _ = connection.transaction(|conn| {
+           for (index, habit_value_id) in habit_value_ids.iter().enumerate() {
+               diesel::update(habit_values.filter(hv_id.eq(habit_value_id)))
+                   .set(hv_sequence.eq(index as i32 + 1))
+                   .execute(conn)?;
+               }
+           diesel::result::QueryResult::Ok(())
+       }).map_err(|e| {
+           debug!("Pool error: {:?}", e);
+           actix_web::error::ErrorInternalServerError(e)
+       });
+    })
+    .await);
+
+    match result {
+        Ok(_) => Ok(HttpResponse::Ok().json("Sequence updated")),
+        Err(e) => {
+            eprintln!("Error updating sequence: {:?}", e);
+            Ok(HttpResponse::InternalServerError().json("Failed to update sequence"))
+        }
+    }
 }
 
 #[post("/day_values")]
@@ -330,6 +366,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_habit_values)
             .service(delete_user_habit)
             .service(reorder_user_habits)
+            .service(reorder_habit_values)
             //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
