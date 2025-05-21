@@ -85,7 +85,7 @@ pub struct NewUserHabit {
     pub habit_type: String,
 }
 
-#[derive(Queryable, Serialize, Debug)]
+#[derive(Queryable, Deserialize, Serialize, Debug)]
 pub struct HabitValue {
     pub id: i32,
     pub label: Option<String>,

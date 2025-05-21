@@ -1,6 +1,6 @@
 mod config;
 use crate::config::Config;
-use actix_web::{get, post, delete, web, App, HttpResponse, HttpServer, middleware::Logger};
+use actix_web::{get, put, post, delete, web, App, HttpResponse, HttpServer, middleware::Logger};
 use diesel::dsl::now;
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
@@ -135,6 +135,37 @@ async fn create_user_habit(
         })?;
 
     debug!("Inserted user_habit: {:?}", inserted);
+    Ok(HttpResponse::Ok().json(inserted))
+}
+
+#[put("/habit_values")]
+async fn update_habit_value(
+    pool: web::Data<DbPool>,
+    req_body: web::Json<HabitValue>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let new_habit_value = req_body.into_inner();
+    debug!(
+        "Updating user_habit for habit_id: {}, color: {}",
+        new_habit_value.habit_id, new_habit_value.color.clone().unwrap_or("".to_string())
+    );
+
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+    let inserted = diesel::update(habit_values)
+        .filter(hv_id.eq(new_habit_value.id))
+        .set((
+                hv_label.eq(new_habit_value.label),
+                hv_color.eq(new_habit_value.color)
+        ))
+        .get_result::<HabitValue>(&mut conn)
+        .map_err(|e| {
+            debug!("Update error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+
+    debug!("Updated habit_value: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -367,6 +398,7 @@ async fn main() -> std::io::Result<()> {
             .service(delete_user_habit)
             .service(reorder_user_habits)
             .service(reorder_habit_values)
+            .service(update_habit_value)
             //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
