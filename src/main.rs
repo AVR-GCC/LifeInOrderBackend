@@ -48,6 +48,38 @@ async fn create_user(
     Ok(HttpResponse::Ok().json(inserted))
 }
 
+#[put("/user_habits")]
+async fn update_user_habit(
+    pool: web::Data<DbPool>,
+    req_body: web::Json<UserHabit>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let new_user_habit= req_body.into_inner();
+    debug!(
+        "Updating user_habit for name: {}, weight: {}, habit_type: {}",
+        new_user_habit.name, new_user_habit.weight, new_user_habit.habit_type
+    );
+
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+    let inserted = diesel::update(user_habits)
+        .filter(uh_id.eq(new_user_habit.id))
+        .set((
+                uh_name.eq(new_user_habit.name),
+                uh_weight.eq(new_user_habit.weight),
+                uh_habit_type.eq(new_user_habit.habit_type),
+        ))
+        .get_result::<UserHabit>(&mut conn)
+        .map_err(|e| {
+            debug!("Update error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+
+    debug!("Updated user_habit: {:?}", inserted);
+    Ok(HttpResponse::Ok().json(inserted))
+}
+
 #[delete("/user_habits/{id}")]
 async fn delete_user_habit(
     pool: web::Data<DbPool>,
@@ -399,6 +431,7 @@ async fn main() -> std::io::Result<()> {
             .service(reorder_user_habits)
             .service(reorder_habit_values)
             .service(update_habit_value)
+            .service(update_user_habit)
             //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?

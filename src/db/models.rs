@@ -63,7 +63,7 @@ impl ToSql<Text, Pg> for HabitType {
     }
 }
 
-#[derive(Queryable, Serialize, Debug)]
+#[derive(Queryable, Deserialize, Serialize, Debug)]
 pub struct UserHabit {
     pub id: i32,
     pub user_id: i32,
