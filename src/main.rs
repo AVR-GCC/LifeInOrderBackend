@@ -264,6 +264,33 @@ async fn reorder_habit_values(
     }
 }
 
+#[delete("/habit_values/{id}")]
+async fn delete_habit_value(
+    pool: web::Data<DbPool>,
+    path_habit_value_id: web::Path<i32>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let inner_habit_value_id = path_habit_value_id.into_inner();
+    println!(
+        "Deleting habit_value for user_id: {}, id: {}",
+        "not yet", inner_habit_value_id
+    );
+
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+    let result = diesel::delete(habit_values.filter(hv_id.eq(inner_habit_value_id)))
+        .execute(&mut conn);
+    match result {
+        Ok(0) => Ok(HttpResponse::NotFound().json("User not found")),
+        Ok(_) => Ok(HttpResponse::Ok().json("User deleted")),
+        Err(err) => {
+            eprintln!("Error deleting user: {:?}", err);
+            Ok(HttpResponse::InternalServerError().json("Internal error"))
+        }
+    }
+}
+
 #[post("/day_values")]
 async fn create_day_value(
     pool: web::Data<DbPool>,
@@ -432,6 +459,7 @@ async fn main() -> std::io::Result<()> {
             .service(reorder_habit_values)
             .service(update_habit_value)
             .service(update_user_habit)
+            .service(delete_habit_value)
             //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
