@@ -27,6 +27,15 @@ mod utils;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
+//use tokio::time::{sleep, Duration};
+
+//async fn delay_and_return(sec: u64) -> Result<(), ()> {
+//    sleep(Duration::from_secs(sec)).await;
+//    Ok(())
+//}
+
+    //delay_and_return(5).await.unwrap();
+
 #[post("/users")]
 async fn create_user(
     pool: web::Data<DbPool>,
