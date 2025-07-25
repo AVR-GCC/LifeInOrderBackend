@@ -68,16 +68,16 @@ pub fn create_period_image(
     for (row_idx, date) in all_dates.iter().enumerate() {
         let date_str = date.to_string();
         let day_values_for_date = date_values.get(&date_str);
-        
+
         let mut x_offset = 0;
-        
+
         // For each habit (sorted by sequence)
         for habit in &data.habits {
             let habit_width = (total_width * habit.habit.weight) / total_weight;
-            
+
             // Get the value for this habit on this date
             let value_id = day_values_for_date.and_then(|values| values.get(&habit.habit.id));
-            
+
             // Find the corresponding habit value and its color
             let color = if let Some(&val_id) = value_id {
                 habit.values
@@ -88,18 +88,34 @@ pub fn create_period_image(
             } else {
                 &None
             };
-            
+
             let rgb_color = parse_color(color);
-            
-            // Fill the rectangle for this habit
-            for y in (row_idx as i32 * row_height)..((row_idx as i32 + 1) * row_height) {
-                for x in x_offset..(x_offset + habit_width) {
-                    if x < total_width && y < image_height {
-                        img.put_pixel(x as u32, y as u32, rgb_color);
+
+            // Fill the rectangle for this habit efficiently using direct buffer manipulation
+            let y_start = row_idx as i32 * row_height;
+            let y_end = ((row_idx as i32 + 1) * row_height).min(image_height);
+            let x_start = x_offset;
+            let x_end = (x_offset + habit_width).min(total_width);
+
+            if x_start < x_end && y_start < y_end {
+                let buffer = img.as_mut();
+                let width = total_width as usize;
+
+                // Fill each row of the rectangle
+                for y in y_start..y_end {
+                    let row_offset = (y as usize * width + x_start as usize) * 3;
+                    let pixels_to_fill = (x_end - x_start) as usize * 3;
+
+                    if row_offset + pixels_to_fill <= buffer.len() {
+                        // Fill the entire row segment at once using chunks
+                        for chunk in buffer[row_offset..row_offset + pixels_to_fill].chunks_exact_mut(3) {
+                            chunk[0] = rgb_color.0[0]; // R
+                            chunk[1] = rgb_color.0[1]; // G
+                            chunk[2] = rgb_color.0[2]; // B
+                        }
                     }
                 }
             }
-            
             x_offset += habit_width;
         }
     }
