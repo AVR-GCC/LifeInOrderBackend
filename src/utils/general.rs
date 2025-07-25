@@ -15,15 +15,15 @@ pub fn create_period_image(
             Some(hex) if hex.len() >= 6 => {
                 let hex = hex.trim_start_matches('#');
                 if hex.len() >= 6 {
-                    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(128);
-                    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(128);
-                    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(128);
+                    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(200);
+                    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(200);
+                    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(200);
                     Rgb([r, g, b])
                 } else {
-                    Rgb([128, 128, 128]) // Default gray
+                    Rgb([200, 200, 200]) // Default gray
                 }
             }
-            _ => Rgb([200, 200, 200]), // Light gray for no data
+            _ => Rgb([128, 128, 128]), // Light gray for no data
         }
     }
 
