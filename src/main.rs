@@ -22,6 +22,8 @@ use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, label as h
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, date as dv_date, habit_id as dv_habit_id, text as dv_text, number as dv_number, created_at as dv_created_at};
 use crate::db::models::{User, NewUser, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue};
 use crate::utils::misc_types::{UserListResponse, ExtendedUserHabit, DayValuesStruct};
+use crate::utils::general::create_period_image;
+
 mod db;
 mod utils;
 
@@ -331,6 +333,7 @@ async fn create_day_value(
 async fn get_habit_values(
     pool: web::Data<DbPool>,
     path_user_id: web::Path<i32>,
+    query: web::Query<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_user_id = path_user_id.into_inner();
     debug!("Fetching user list for user_id: {}", inner_user_id);
@@ -432,7 +435,34 @@ async fn get_habit_values(
 
     let response = UserListResponse { dates, habits };
     debug!("Returning user list with {} dates, {} habits", response.dates.len(), response.habits.len());
-    Ok(HttpResponse::Ok().json(response))
+
+    // Check if image visualization is requested
+    if query.get("format").map(|s| s.as_str()) == Some("image") {
+        // Get dimensions from query parameters or use defaults
+        let total_width: i32 = query.get("width")
+            .and_then(|w| w.parse().ok())
+            .unwrap_or(800);
+        let row_height: i32 = query.get("height")
+            .and_then(|h| h.parse().ok())
+            .unwrap_or(20);
+
+        // Generate the visualization
+        match create_period_image(response, total_width, row_height) {
+            Ok(webp_data) => {
+                debug!("Generated WebP image: {} bytes", webp_data.len());
+                Ok(HttpResponse::Ok()
+                    .content_type("image/webp")
+                    .body(webp_data))
+            }
+            Err(e) => {
+                debug!("Error generating visualization: {:?}", e);
+                Err(actix_web::error::ErrorInternalServerError(e))
+            }
+        }
+    } else {
+        // Return JSON as usual
+        Ok(HttpResponse::Ok().json(response))
+    }
 }
 
 #[actix_web::main]

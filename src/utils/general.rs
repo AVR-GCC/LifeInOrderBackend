@@ -1,0 +1,113 @@
+use image::{ImageBuffer, Rgb};
+use chrono::Duration;
+use std::collections::HashMap;
+use chrono::NaiveDate;
+use crate::utils::misc_types::UserListResponse;
+
+pub fn create_period_image(
+    data: UserListResponse,
+    total_width: i32,
+    row_height: i32,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    // Parse hex color to RGB
+    fn parse_color(color_str: &Option<String>) -> Rgb<u8> {
+        match color_str {
+            Some(hex) if hex.len() >= 6 => {
+                let hex = hex.trim_start_matches('#');
+                if hex.len() >= 6 {
+                    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(128);
+                    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(128);
+                    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(128);
+                    Rgb([r, g, b])
+                } else {
+                    Rgb([128, 128, 128]) // Default gray
+                }
+            }
+            _ => Rgb([200, 200, 200]), // Light gray for no data
+        }
+    }
+
+    // Create a map of dates for quick lookup
+    let mut date_values: HashMap<String, &HashMap<i32, i32>> = HashMap::new();
+    for day_values_item in &data.dates {
+        date_values.insert(day_values_item.date.clone(), &day_values_item.values);
+    }
+
+    // Find date range
+    let dates: Vec<NaiveDate> = data.dates
+        .iter()
+        .filter_map(|d| d.date.parse().ok())
+        .collect();
+    
+    if dates.is_empty() {
+        return Err("No valid dates found".into());
+    }
+
+    let min_date = *dates.iter().min().unwrap();
+    let max_date = *dates.iter().max().unwrap();
+    
+    // Generate all dates in range
+    let mut all_dates = Vec::new();
+    let mut current_date = min_date;
+    while current_date <= max_date {
+        all_dates.push(current_date);
+        current_date = current_date + Duration::days(1);
+    }
+
+    let image_height = (all_dates.len() as i32) * row_height;
+    let mut img = ImageBuffer::<Rgb<u8>, Vec<u8>>::new(total_width as u32, image_height as u32);
+
+    // Calculate total weight for proportional width calculation
+    let total_weight: i32 = data.habits.iter().map(|h| h.habit.weight).sum();
+    
+    if total_weight == 0 {
+        return Err("Total habit weight is zero".into());
+    }
+
+    // For each date row
+    for (row_idx, date) in all_dates.iter().enumerate() {
+        let date_str = date.to_string();
+        let day_values_for_date = date_values.get(&date_str);
+        
+        let mut x_offset = 0;
+        
+        // For each habit (sorted by sequence)
+        for habit in &data.habits {
+            let habit_width = (total_width * habit.habit.weight) / total_weight;
+            
+            // Get the value for this habit on this date
+            let value_id = day_values_for_date.and_then(|values| values.get(&habit.habit.id));
+            
+            // Find the corresponding habit value and its color
+            let color = if let Some(&val_id) = value_id {
+                habit.values
+                    .iter()
+                    .find(|v| v.id == val_id)
+                    .map(|v| &v.color)
+                    .unwrap_or(&None)
+            } else {
+                &None
+            };
+            
+            let rgb_color = parse_color(color);
+            
+            // Fill the rectangle for this habit
+            for y in (row_idx as i32 * row_height)..((row_idx as i32 + 1) * row_height) {
+                for x in x_offset..(x_offset + habit_width) {
+                    if x < total_width && y < image_height {
+                        img.put_pixel(x as u32, y as u32, rgb_color);
+                    }
+                }
+            }
+            
+            x_offset += habit_width;
+        }
+    }
+
+    // Encode as WebP
+    let mut webp_data = Vec::new();
+    let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut webp_data);
+    encoder.encode(&img, img.width(), img.height(), image::ColorType::Rgb8.into())?;
+    
+    Ok(webp_data)
+}
