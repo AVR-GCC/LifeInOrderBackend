@@ -2,8 +2,8 @@ mod config;
 use crate::config::Config;
 use actix_web::{get, put, post, delete, web, App, HttpResponse, HttpServer, middleware::Logger};
 use diesel::dsl::now;
-use chrono::NaiveDate;
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime, Datelike};
+use std::str::FromStr;
 use log::debug;
 use utils::misc_types::SequenceUpdateRequest;
 use std::collections::HashMap;
@@ -394,6 +394,54 @@ async fn get_habit_values(
     }).collect();
 
     dates.sort_by(|a, b| a.date.cmp(&b.date));
+
+    // Filter dates based on query parameter if provided
+    if let Some(date_param) = query.get("date") {
+        println!("Date param: {} {:?}", date_param, NaiveDate::from_str(date_param));
+        if let Ok(target_date) = NaiveDate::from_str(date_param) {
+            // Calculate the first day of the month before the target date
+            let month_before = if target_date.month() == 1 {
+                NaiveDate::from_ymd_opt(target_date.year() - 1, 12, 1).unwrap()
+            } else {
+                NaiveDate::from_ymd_opt(target_date.year(), target_date.month() - 1, 1).unwrap()
+            };
+            
+            // Calculate the last day of the month after the target date
+            let month_after = if target_date.month() == 12 {
+                NaiveDate::from_ymd_opt(target_date.year() + 1, 1, 1).unwrap()
+                    .pred_opt().unwrap()  // Last day of December
+                    .with_day(
+                        NaiveDate::from_ymd_opt(target_date.year() + 1, 1, 1).unwrap()
+                            .pred_opt().unwrap().day()
+                    ).unwrap()
+            } else {
+                let next_month = target_date.month() + 1;
+                let next_month_year = if next_month > 12 { target_date.year() + 1 } else { target_date.year() };
+                let next_month_normalized = if next_month > 12 { 1 } else { next_month };
+                
+                // Get the first day of the month after next, then subtract one day to get last day of next month
+                let month_after_next = if next_month_normalized == 12 {
+                    NaiveDate::from_ymd_opt(next_month_year + 1, 1, 1).unwrap()
+                } else {
+                    NaiveDate::from_ymd_opt(next_month_year, next_month_normalized + 1, 1).unwrap()
+                };
+                month_after_next.pred_opt().unwrap()
+            };
+            
+            // Filter dates within the range
+            dates.retain(|day_value| {
+                if let Ok(date) = NaiveDate::from_str(&day_value.date) {
+                    date >= month_before && date <= month_after
+                } else {
+                    false
+                }
+            });
+            
+            debug!("Filtered dates from {} to {} (target: {})", month_before, month_after, target_date);
+        } else {
+            debug!("Invalid date parameter: {}", date_param);
+        }
+    }
 
     for (
         habit_id, habit_name, habit_weight, habit_sequence, habit_type, habit_user_id, habit_created_at,
