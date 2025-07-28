@@ -4,12 +4,30 @@ use std::collections::HashMap;
 use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id};
 use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id};
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, date as dv_date};
-use crate::utils::misc_types::UserListResponse;
+use crate::utils::misc_types::{UserListResponse, DayValuesStruct};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use diesel::ExpressionMethods;
 use diesel::JoinOnDsl;
 use diesel::QueryDsl;
+
+pub fn fill_dates_list(
+    from_date: Option<NaiveDate>,
+    to_date: Option<NaiveDate>,
+    dates_map: HashMap<String, HashMap<i32, i32>>,
+    ) -> Vec<DayValuesStruct> {
+    let min_date = from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
+    let max_date = to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap());
+    let mut dates: Vec<DayValuesStruct> = Vec::new();
+    let mut current_date = min_date;
+    while current_date <= max_date {
+        let date_str = current_date.to_string();
+        let values = dates_map.get(&date_str).unwrap_or(&HashMap::new()).clone();
+        dates.push(DayValuesStruct { date: date_str, values: values });
+        current_date = current_date + Duration::days(1);
+    }
+    dates
+}
 
 pub async fn get_user_values_dates_map(
     conn: &mut PgConnection,
@@ -71,12 +89,6 @@ pub fn create_period_image(
         }
     }
 
-    // Create a map of dates for quick lookup
-    let mut date_values: HashMap<String, &HashMap<i32, i32>> = HashMap::new();
-    for day_values_item in &data.dates {
-        date_values.insert(day_values_item.date.clone(), &day_values_item.values);
-    }
-
     // Find date range
     let dates: Vec<NaiveDate> = data.dates
         .iter()
@@ -87,18 +99,7 @@ pub fn create_period_image(
         return Err("No valid dates found".into());
     }
 
-    let min_date = *dates.iter().min().unwrap();
-    let max_date = *dates.iter().max().unwrap();
-    
-    // Generate all dates in range
-    let mut all_dates = Vec::new();
-    let mut current_date = min_date;
-    while current_date <= max_date {
-        all_dates.push(current_date);
-        current_date = current_date + Duration::days(1);
-    }
-
-    let image_height = (all_dates.len() as i32) * row_height;
+    let image_height = (data.dates.len() as i32) * row_height;
     let mut img = ImageBuffer::<Rgb<u8>, Vec<u8>>::new(total_width as u32, image_height as u32);
 
     // Calculate total weight for proportional width calculation
@@ -109,10 +110,7 @@ pub fn create_period_image(
     }
 
     // For each date row
-    for (row_idx, date) in all_dates.iter().enumerate() {
-        let date_str = date.to_string();
-        let day_values_for_date = date_values.get(&date_str);
-
+    for (row_idx, date_values) in data.dates.iter().enumerate() {
         let mut x_offset = 0;
 
         // For each habit (sorted by sequence)
@@ -120,7 +118,7 @@ pub fn create_period_image(
             let habit_width = (total_width * habit.habit.weight) / total_weight;
 
             // Get the value for this habit on this date
-            let value_id = day_values_for_date.and_then(|values| values.get(&habit.habit.id));
+            let value_id = date_values.values.get(&habit.habit.id);
 
             // Find the corresponding habit value and its color
             let color = if let Some(&val_id) = value_id {
