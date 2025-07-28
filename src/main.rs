@@ -329,6 +329,104 @@ async fn create_day_value(
     Ok(HttpResponse::Ok().json(inserted))
 }
 
+async fn get_user_extended_habits(
+    conn: &mut PgConnection,
+    user_id: i32,
+) -> Result<Vec<ExtendedUserHabit>, actix_web::Error> {
+
+    let habit_value = user_habits
+        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
+        .filter(uh_user_id.eq(user_id))
+        .select((
+            uh_id, uh_name, uh_weight, uh_sequence, uh_habit_type, uh_user_id, uh_created_at,
+            hv_id, hv_label, hv_sequence, hv_color, hv_created_at
+        ))
+        .load::<(
+            i32, String, i32, i32, String, i32, NaiveDateTime,
+            i32, Option<String>, i32, Option<String>, NaiveDateTime
+        )>(conn)
+        .map_err(|e| {
+            debug!("Query error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+
+    let mut habits_map: HashMap<i32, ExtendedUserHabit> = HashMap::new();
+
+    for (
+        habit_id, habit_name, habit_weight, habit_sequence, habit_type, habit_user_id, habit_created_at,
+        value_id, value_label, value_sequence, value_color, value_created_at
+    ) in habit_value {
+        // Habits: habit_id -> details with values
+        let habit_entry = habits_map.entry(habit_id).or_insert(ExtendedUserHabit {
+            habit: UserHabit {
+                id: habit_id,
+                name: habit_name,
+                weight: habit_weight,
+                sequence: habit_sequence,
+                habit_type,
+                user_id: habit_user_id,
+                created_at: habit_created_at
+            },
+            values: Vec::new(),
+            values_hashmap: HashMap::new(),
+        });
+        habit_entry.values.push(HabitValue {
+            id: value_id,
+            label: value_label,
+            sequence: value_sequence,
+            habit_id,
+            color: value_color,
+            created_at: value_created_at,
+        });
+    }
+
+    let mut habits: Vec<ExtendedUserHabit> = habits_map.into_iter().map(|(_, mut habit)| {
+        habit.values.sort_by(|a, b| a.sequence.cmp(&b.sequence));
+        for (index, value) in habit.values.iter().enumerate() {
+            habit.values_hashmap.insert(value.id, index.try_into().unwrap());
+        };
+        habit
+    }).collect();
+
+    habits.sort_by(|a, b| a.habit.sequence.cmp(&b.habit.sequence));
+
+    Ok(habits)
+}
+
+async fn get_user_values_dates_map(
+    conn: &mut PgConnection,
+    user_id: i32,
+) -> Result<HashMap<String, HashMap<i32, i32>>, actix_web::Error> {
+    let value_data = user_habits
+        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
+        .inner_join(day_values.on(dv_value_id.eq(hv_id)))
+        .filter(uh_user_id.eq(user_id))
+        .select((
+            uh_id,
+            dv_date,
+            dv_value_id,
+        ))
+        .order(dv_date.asc())
+        .load::<(i32, NaiveDate, i32)>(conn)
+        .map_err(|e| {
+            debug!("Query error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+    // Build response
+    let mut dates_map: HashMap<String, HashMap<i32, i32>> = HashMap::new();
+
+    for (habit_id, date, day_value_id) in value_data {
+        // Dates: date -> habit_id -> day_value_id
+        let date_str = date.to_string();
+        dates_map
+            .entry(date_str)
+            .or_insert_with(HashMap::new)
+            .insert(habit_id, day_value_id);
+    }
+
+    Ok(dates_map)
+}
+
 #[get("/users/{path_user_id}/list")]
 async fn get_habit_values(
     pool: web::Data<DbPool>,
@@ -343,50 +441,7 @@ async fn get_habit_values(
         actix_web::error::ErrorInternalServerError(e)
     })?;
 
-    // Fetch data
-    let habit_data = user_habits
-        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
-        .inner_join(day_values.on(dv_value_id.eq(hv_id)))
-        .filter(uh_user_id.eq(inner_user_id))
-        .select((
-            uh_id,
-            dv_date,
-            dv_value_id,
-        ))
-        .order(dv_date.asc())
-        .load::<(i32, NaiveDate, i32)>(&mut conn)
-        .map_err(|e| {
-            debug!("Query error: {:?}", e);
-            actix_web::error::ErrorInternalServerError(e)
-        })?;
-
-    let habit_value = user_habits
-        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
-        .filter(uh_user_id.eq(inner_user_id))
-        .select((
-            uh_id, uh_name, uh_weight, uh_sequence, uh_habit_type, uh_user_id, uh_created_at,
-            hv_id, hv_label, hv_sequence, hv_color, hv_created_at
-        ))
-        .load::<(
-            i32, String, i32, i32, String, i32, NaiveDateTime,
-            i32, Option<String>, i32, Option<String>, NaiveDateTime
-        )>(&mut conn)
-        .map_err(|e| {
-            debug!("Query error: {:?}", e);
-            actix_web::error::ErrorInternalServerError(e)
-        })?;
-    // Build response
-    let mut dates_map: HashMap<String, HashMap<i32, i32>> = HashMap::new();
-    let mut habits_map: HashMap<i32, ExtendedUserHabit> = HashMap::new();
-
-    for (habit_id, date, day_value_id) in habit_data {
-        // Dates: date -> habit_id -> day_value_id
-        let date_str = date.to_string();
-        dates_map
-            .entry(date_str)
-            .or_insert_with(HashMap::new)
-            .insert(habit_id, day_value_id);
-    }
+    let dates_map = get_user_values_dates_map(&mut conn, inner_user_id).await?;
 
     let mut dates: Vec<DayValuesStruct> = dates_map.into_iter().map(|(key, values)| {
         let date = key.to_string();
@@ -443,43 +498,7 @@ async fn get_habit_values(
         }
     }
 
-    for (
-        habit_id, habit_name, habit_weight, habit_sequence, habit_type, habit_user_id, habit_created_at,
-        value_id, value_label, value_sequence, value_color, value_created_at
-    ) in habit_value {
-        // Habits: habit_id -> details with values
-        let habit_entry = habits_map.entry(habit_id).or_insert(ExtendedUserHabit {
-            habit: UserHabit {
-                id: habit_id,
-                name: habit_name,
-                weight: habit_weight,
-                sequence: habit_sequence,
-                habit_type,
-                user_id: habit_user_id,
-                created_at: habit_created_at
-            },
-            values: Vec::new(),
-            values_hashmap: HashMap::new(),
-        });
-        habit_entry.values.push(HabitValue {
-            id: value_id,
-            label: value_label,
-            sequence: value_sequence,
-            habit_id,
-            color: value_color,
-            created_at: value_created_at,
-        });
-    }
-
-    let mut habits: Vec<ExtendedUserHabit> = habits_map.into_iter().map(|(_, mut habit)| {
-        habit.values.sort_by(|a, b| a.sequence.cmp(&b.sequence));
-        for (index, value) in habit.values.iter().enumerate() {
-            habit.values_hashmap.insert(value.id, index.try_into().unwrap());
-        };
-        habit
-    }).collect();
-
-    habits.sort_by(|a, b| a.habit.sequence.cmp(&b.habit.sequence));
+    let habits = get_user_extended_habits(&mut conn, inner_user_id).await.map_err(actix_web::error::ErrorInternalServerError)?;
 
     let response = UserListResponse { dates, habits };
     debug!("Returning user list with {} dates, {} habits", response.dates.len(), response.habits.len());
