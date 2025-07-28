@@ -15,7 +15,7 @@ pub fn get_month_user_values_list(
     month: u32,
     year: i32,
     _user_id: i32,
-    dates_map: HashMap<String, HashMap<i32, i32>>,
+    dates_map: &HashMap<String, HashMap<i32, i32>>,
 ) -> Vec<DayValuesStruct> {
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let max_date = min_date.checked_add_months(Months::new(1)).unwrap() - Duration::days(1);
@@ -25,7 +25,7 @@ pub fn get_month_user_values_list(
 pub fn fill_dates_list(
     from_date: Option<NaiveDate>,
     to_date: Option<NaiveDate>,
-    dates_map: HashMap<String, HashMap<i32, i32>>,
+    dates_map: &HashMap<String, HashMap<i32, i32>>,
     ) -> Vec<DayValuesStruct> {
     let min_date = from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
     let max_date = to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap());

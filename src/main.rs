@@ -2,10 +2,11 @@ mod config;
 use crate::config::Config;
 use actix_web::{get, put, post, delete, web, App, HttpResponse, HttpServer, middleware::Logger};
 use diesel::dsl::now;
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, NaiveDate, Datelike};
 use log::debug;
 use utils::misc_types::SequenceUpdateRequest;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 #[macro_use]
 extern crate diesel_migrations;
@@ -406,22 +407,34 @@ async fn get_habit_values(
         actix_web::error::ErrorInternalServerError(e)
     })?;
 
-    let dates_map = get_user_values_dates_map(&mut conn, inner_user_id, None, None).await?;
-    let dates = get_month_user_values_list(6, 2025, inner_user_id, dates_map);
-
-    let habits = get_user_extended_habits(&mut conn, inner_user_id).await.map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let response = UserListResponse { dates, habits };
-    // println!("Returning user list with {} dates, {} habits", response.dates.len(), response.habits.len());
-
-    let total_width: i32 = query.get("width")
-        .and_then(|w| w.parse().ok())
-        .unwrap_or(1080);
-    if query.get("format").map(|s| s.as_str()) == Some("image") {
+    if let Some(date) = query.get("date") {
         let row_height: i32 = query.get("height")
             .and_then(|h| h.parse().ok())
             .unwrap_or(8);
 
+        let date = NaiveDate::from_str(date).unwrap();
+        let month = date.month();
+        let prev_month = if month == 1 { 12 } else { month - 1 };
+        let next_month = if month == 12 { 1 } else { month + 1 };
+        let year = date.year();
+        let prev_year = if month == 1 { year - 1 } else { year };
+        let next_year = if month == 12 { year + 1 } else { year };
+
+        let dates_map = get_user_values_dates_map(&mut conn, inner_user_id, None, None).await?;
+        let this_month_values = get_month_user_values_list(month, year, inner_user_id, &dates_map);
+        let prev_month_values = get_month_user_values_list(prev_month, prev_year, inner_user_id, &dates_map);
+        let next_month_values = get_month_user_values_list(next_month, next_year, inner_user_id, &dates_map);
+
+        let habits = get_user_extended_habits(&mut conn, inner_user_id).await.map_err(actix_web::error::ErrorInternalServerError)?;
+
+        let dates = [prev_month_values, this_month_values, next_month_values].concat();
+
+        let response = UserListResponse { dates, habits };
+        // println!("Returning user list with {} dates, {} habits", response.dates.len(), response.habits.len());
+
+        let total_width: i32 = query.get("width")
+            .and_then(|w| w.parse().ok())
+            .unwrap_or(1080);
         match create_period_image(response, total_width, row_height) {
             Ok(webp_data) => {
                 Ok(HttpResponse::Ok()
@@ -434,7 +447,7 @@ async fn get_habit_values(
             }
         }
     } else {
-        Ok(HttpResponse::Ok().json(response))
+        Ok(HttpResponse::Ok().json(UserListResponse { dates: Vec::new(), habits: Vec::new() }))
     }
 }
 
