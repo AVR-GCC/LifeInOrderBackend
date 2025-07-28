@@ -1,9 +1,53 @@
 use image::{ImageBuffer, Rgb};
-use chrono::Duration;
+use chrono::{Duration, NaiveDate};
 use std::collections::HashMap;
-use chrono::NaiveDate;
+use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id};
+use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id};
+use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, date as dv_date};
 use crate::utils::misc_types::UserListResponse;
+use diesel::prelude::*;
+use diesel::pg::PgConnection;
+use diesel::ExpressionMethods;
+use diesel::JoinOnDsl;
+use diesel::QueryDsl;
 
+pub async fn get_user_values_dates_map(
+    conn: &mut PgConnection,
+    user_id: i32,
+    from_date: Option<NaiveDate>,
+    to_date: Option<NaiveDate>,
+) -> Result<HashMap<String, HashMap<i32, i32>>, actix_web::Error> {
+    let value_data = user_habits
+        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
+        .inner_join(day_values.on(dv_value_id.eq(hv_id)))
+        .filter(dv_date.ge(from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap())))
+        .filter(dv_date.le(to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap())))
+        .filter(uh_user_id.eq(user_id))
+        .select((
+            uh_id,
+            dv_date,
+            dv_value_id,
+        ))
+        .order(dv_date.asc())
+        .load::<(i32, NaiveDate, i32)>(conn)
+        .map_err(|e| {
+            println!("Query error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+    // Build response
+    let mut dates_map: HashMap<String, HashMap<i32, i32>> = HashMap::new();
+
+    for (habit_id, date, day_value_id) in value_data {
+        // Dates: date -> habit_id -> day_value_id
+        let date_str = date.to_string();
+        dates_map
+            .entry(date_str)
+            .or_insert_with(HashMap::new)
+            .insert(habit_id, day_value_id);
+    }
+
+    Ok(dates_map)
+}
 pub fn create_period_image(
     data: UserListResponse,
     total_width: i32,

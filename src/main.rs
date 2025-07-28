@@ -22,7 +22,7 @@ use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, label as h
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, date as dv_date, habit_id as dv_habit_id, text as dv_text, number as dv_number, created_at as dv_created_at};
 use crate::db::models::{User, NewUser, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue};
 use crate::utils::misc_types::{UserListResponse, ExtendedUserHabit, DayValuesStruct};
-use crate::utils::general::create_period_image;
+use crate::utils::general::{create_period_image, get_user_values_dates_map};
 
 mod db;
 mod utils;
@@ -391,44 +391,6 @@ async fn get_user_extended_habits(
     habits.sort_by(|a, b| a.habit.sequence.cmp(&b.habit.sequence));
 
     Ok(habits)
-}
-
-async fn get_user_values_dates_map(
-    conn: &mut PgConnection,
-    user_id: i32,
-    from_date: Option<NaiveDate>,
-    to_date: Option<NaiveDate>,
-) -> Result<HashMap<String, HashMap<i32, i32>>, actix_web::Error> {
-    let value_data = user_habits
-        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
-        .inner_join(day_values.on(dv_value_id.eq(hv_id)))
-        .filter(dv_date.ge(from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap())))
-        .filter(dv_date.le(to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap())))
-        .filter(uh_user_id.eq(user_id))
-        .select((
-            uh_id,
-            dv_date,
-            dv_value_id,
-        ))
-        .order(dv_date.asc())
-        .load::<(i32, NaiveDate, i32)>(conn)
-        .map_err(|e| {
-            debug!("Query error: {:?}", e);
-            actix_web::error::ErrorInternalServerError(e)
-        })?;
-    // Build response
-    let mut dates_map: HashMap<String, HashMap<i32, i32>> = HashMap::new();
-
-    for (habit_id, date, day_value_id) in value_data {
-        // Dates: date -> habit_id -> day_value_id
-        let date_str = date.to_string();
-        dates_map
-            .entry(date_str)
-            .or_insert_with(HashMap::new)
-            .insert(habit_id, day_value_id);
-    }
-
-    Ok(dates_map)
 }
 
 #[get("/users/{path_user_id}/list")]
