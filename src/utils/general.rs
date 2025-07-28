@@ -1,5 +1,5 @@
 use image::{ImageBuffer, Rgb};
-use chrono::{Duration, NaiveDate};
+use chrono::{Duration, NaiveDate, Months};
 use std::collections::HashMap;
 use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id};
 use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id};
@@ -10,6 +10,17 @@ use diesel::pg::PgConnection;
 use diesel::ExpressionMethods;
 use diesel::JoinOnDsl;
 use diesel::QueryDsl;
+
+pub fn get_month_user_values_list(
+    month: u32,
+    year: i32,
+    _user_id: i32,
+    dates_map: HashMap<String, HashMap<i32, i32>>,
+) -> Vec<DayValuesStruct> {
+    let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+    let max_date = min_date.checked_add_months(Months::new(1)).unwrap() - Duration::days(1);
+    fill_dates_list(Some(min_date), Some(max_date), dates_map)
+}
 
 pub fn fill_dates_list(
     from_date: Option<NaiveDate>,

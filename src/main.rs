@@ -2,8 +2,7 @@ mod config;
 use crate::config::Config;
 use actix_web::{get, put, post, delete, web, App, HttpResponse, HttpServer, middleware::Logger};
 use diesel::dsl::now;
-use chrono::{NaiveDate, NaiveDateTime};
-use std::str::FromStr;
+use chrono::NaiveDateTime;
 use log::debug;
 use utils::misc_types::SequenceUpdateRequest;
 use std::collections::HashMap;
@@ -22,7 +21,7 @@ use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, label as h
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, date as dv_date, habit_id as dv_habit_id, text as dv_text, number as dv_number, created_at as dv_created_at};
 use crate::db::models::{User, NewUser, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue};
 use crate::utils::misc_types::{UserListResponse, ExtendedUserHabit};
-use crate::utils::general::{create_period_image, get_user_values_dates_map, fill_dates_list};
+use crate::utils::general::{create_period_image, get_user_values_dates_map, get_month_user_values_list};
 
 mod db;
 mod utils;
@@ -400,7 +399,7 @@ async fn get_habit_values(
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_user_id = path_user_id.into_inner();
-    debug!("Fetching user list for user_id: {}", inner_user_id);
+    // println!("Fetching user list for user_id: {}", inner_user_id);
 
     let mut conn = pool.get().map_err(|e| {
         debug!("Pool error: {:?}", e);
@@ -408,38 +407,33 @@ async fn get_habit_values(
     })?;
 
     let dates_map = get_user_values_dates_map(&mut conn, inner_user_id, None, None).await?;
-    let dates = fill_dates_list(Some(NaiveDate::from_str("2025-05-25").unwrap()), Some(NaiveDate::from_str("2025-06-25").unwrap()), dates_map);
+    let dates = get_month_user_values_list(6, 2025, inner_user_id, dates_map);
 
     let habits = get_user_extended_habits(&mut conn, inner_user_id).await.map_err(actix_web::error::ErrorInternalServerError)?;
 
     let response = UserListResponse { dates, habits };
-    debug!("Returning user list with {} dates, {} habits", response.dates.len(), response.habits.len());
+    // println!("Returning user list with {} dates, {} habits", response.dates.len(), response.habits.len());
 
-    // Check if image visualization is requested
+    let total_width: i32 = query.get("width")
+        .and_then(|w| w.parse().ok())
+        .unwrap_or(1080);
     if query.get("format").map(|s| s.as_str()) == Some("image") {
-        // Get dimensions from query parameters or use defaults
-        let total_width: i32 = query.get("width")
-            .and_then(|w| w.parse().ok())
-            .unwrap_or(800);
         let row_height: i32 = query.get("height")
             .and_then(|h| h.parse().ok())
-            .unwrap_or(20);
+            .unwrap_or(8);
 
-        // Generate the visualization
         match create_period_image(response, total_width, row_height) {
             Ok(webp_data) => {
-                debug!("Generated WebP image: {} bytes", webp_data.len());
                 Ok(HttpResponse::Ok()
                     .content_type("image/webp")
                     .body(webp_data))
             }
             Err(e) => {
-                debug!("Error generating visualization: {:?}", e);
+                println!("Error generating visualization: {:?}", e);
                 Err(actix_web::error::ErrorInternalServerError(e))
             }
         }
     } else {
-        // Return JSON as usual
         Ok(HttpResponse::Ok().json(response))
     }
 }
