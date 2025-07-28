@@ -396,10 +396,14 @@ async fn get_user_extended_habits(
 async fn get_user_values_dates_map(
     conn: &mut PgConnection,
     user_id: i32,
+    from_date: Option<NaiveDate>,
+    to_date: Option<NaiveDate>,
 ) -> Result<HashMap<String, HashMap<i32, i32>>, actix_web::Error> {
     let value_data = user_habits
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .inner_join(day_values.on(dv_value_id.eq(hv_id)))
+        .filter(dv_date.ge(from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap())))
+        .filter(dv_date.le(to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap())))
         .filter(uh_user_id.eq(user_id))
         .select((
             uh_id,
@@ -441,7 +445,7 @@ async fn get_habit_values(
         actix_web::error::ErrorInternalServerError(e)
     })?;
 
-    let dates_map = get_user_values_dates_map(&mut conn, inner_user_id).await?;
+    let dates_map = get_user_values_dates_map(&mut conn, inner_user_id, None, None).await?;
 
     let mut dates: Vec<DayValuesStruct> = dates_map.into_iter().map(|(key, values)| {
         let date = key.to_string();
