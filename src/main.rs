@@ -2,7 +2,7 @@ mod config;
 use crate::config::Config;
 use actix_web::{get, put, post, delete, web, App, HttpResponse, HttpServer, middleware::Logger};
 use diesel::dsl::now;
-use chrono::{NaiveDateTime, NaiveDate, Datelike};
+use chrono::{NaiveDateTime, NaiveDate, Datelike, Duration};
 use log::debug;
 use utils::misc_types::SequenceUpdateRequest;
 use std::collections::HashMap;
@@ -407,43 +407,115 @@ async fn get_habit_values(
         actix_web::error::ErrorInternalServerError(e)
     })?;
 
-    if let Some(date) = query.get("date") {
-        let row_height: i32 = query.get("height")
-            .and_then(|h| h.parse().ok())
-            .unwrap_or(8);
-
+    if let (Some(date), Some(zoom)) = (query.get("date"), query.get("zoom")) {
         let date = NaiveDate::from_str(date).unwrap();
-        let month = date.month();
-        let prev_month = if month == 1 { 12 } else { month - 1 };
-        let next_month = if month == 12 { 1 } else { month + 1 };
         let year = date.year();
-        let prev_year = if month == 1 { year - 1 } else { year };
-        let next_year = if month == 12 { year + 1 } else { year };
+        let (start_date, end_date) = match zoom.as_str() {
+            "day" => {
+                let month = date.month();
+                let prev_month = if month == 1 { 12 } else { month - 1 };
+                let next_month = if month == 12 { 1 } else { month + 1 };
+                let next_next_month = if next_month == 12 { 1 } else { next_month + 1 };
+                let prev_year = if month == 1 { year - 1 } else { year };
+                let next_year = if month == 12 { year + 1 } else { year };
+                let next_next_year = if next_month == 12 { next_year + 1 } else { next_year };
+                let from_date = NaiveDate::from_ymd_opt(prev_year, prev_month, 1).unwrap();
+                let to_date = NaiveDate::from_ymd_opt(next_next_year, next_next_month, 1).unwrap() - Duration::days(1);
+                (from_date, to_date)
+            },
+            "quarter" => {
+                let month = date.month();
+                let quarter = (month - 1) / 3;
+                let is_last_quarter = quarter == 3;
+                let first_month = quarter * 3 + 1;
+                let first_month_of_next_quarter = if is_last_quarter { 1 } else { first_month + 3 };
+                let year_of_next_quarter = if is_last_quarter { year + 1 } else { year };
+                let from_date = NaiveDate::from_ymd_opt(year, first_month, 1).unwrap();
+                let to_date = NaiveDate::from_ymd_opt(year_of_next_quarter, first_month_of_next_quarter, 1).unwrap() - Duration::days(1);
+                (from_date, to_date)
+            },
+            "half" => {
+                let month = date.month();
+                if month <= 6 {
+                    let from_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
+                    let to_date = NaiveDate::from_ymd_opt(year, 7, 1).unwrap() - Duration::days(1);
+                    (from_date, to_date)
+                } else {
+                    let from_date = NaiveDate::from_ymd_opt(year, 7, 1).unwrap();
+                    let to_date = NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - Duration::days(1);
+                    (from_date, to_date)
+                }
+            },
+            "year" => {
+                let from_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
+                let to_date = NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - Duration::days(1);
+                (from_date, to_date)
+            },
+            "two_year" => {
+                let first_year = if date.year() % 2 == 0 { date.year() } else { date.year() - 1 };
+                let second_year = first_year + 1;
+                let from_date = NaiveDate::from_ymd_opt(first_year, 1, 1).unwrap();
+                let to_date = NaiveDate::from_ymd_opt(second_year + 1, 1, 1).unwrap() - Duration::days(1);
+                (from_date, to_date)
+            },
+            _ => (date, date),
+        };
 
-        let dates_map = get_user_values_dates_map(&mut conn, inner_user_id, None, None).await?;
-        let this_month_values = get_month_user_values_list(month, year, inner_user_id, &dates_map);
-        let prev_month_values = get_month_user_values_list(prev_month, prev_year, inner_user_id, &dates_map);
-        let next_month_values = get_month_user_values_list(next_month, next_year, inner_user_id, &dates_map);
+        let dates_map = get_user_values_dates_map(&mut conn, inner_user_id, Some(start_date), Some(end_date)).await?;
 
         let habits = get_user_extended_habits(&mut conn, inner_user_id).await.map_err(actix_web::error::ErrorInternalServerError)?;
+        println!("start_date: {}, end_date: {}", start_date, end_date);
 
-        let dates = [prev_month_values, this_month_values, next_month_values].concat();
+        if zoom == "day" {
+            let month = date.month();
+            let prev_month = if month == 1 { 12 } else { month - 1 };
+            let next_month = if month == 12 { 1 } else { month + 1 };
+            let prev_year = if month == 1 { year - 1 } else { year };
+            let next_year = if month == 12 { year + 1 } else { year };
+            let this_month_values = get_month_user_values_list(month, year, inner_user_id, &dates_map);
+            let prev_month_values = get_month_user_values_list(prev_month, prev_year, inner_user_id, &dates_map);
+            let next_month_values = get_month_user_values_list(next_month, next_year, inner_user_id, &dates_map);
+            let dates = [prev_month_values, this_month_values, next_month_values].concat();
+            let response = UserListResponse { dates, habits };
+            Ok(HttpResponse::Ok().json(response))
+        } else {
+            let total_width: i32 = query.get("width")
+                .and_then(|w| w.parse().ok())
+                .unwrap_or(1080);
+            let row_height = match zoom.as_str() {
+                "quarter" => 8,
+                "half" => 4,
+                "year" => 2,
+                "two_year" => 1,
+                _ => 1,
+            };
+            let mut dates = Vec::new();
+            let mut current_month = start_date.month();
+            let mut current_year = start_date.year();
+            let end_month = end_date.month();
+            let end_year = end_date.year();
 
-        let response = UserListResponse { dates, habits };
-        // println!("Returning user list with {} dates, {} habits", response.dates.len(), response.habits.len());
-
-        let total_width: i32 = query.get("width")
-            .and_then(|w| w.parse().ok())
-            .unwrap_or(1080);
-        match create_period_image(response, total_width, row_height) {
-            Ok(webp_data) => {
-                Ok(HttpResponse::Ok()
+            while current_month != end_month || current_year != end_year {
+                let mut month_values = get_month_user_values_list(current_month, current_year, inner_user_id, &dates_map);
+                dates.append(&mut month_values);
+                if current_month == 12 {
+                    current_month = 1;
+                    current_year += 1;
+                } else {
+                    current_month += 1;
+                }
+            }
+            let response = UserListResponse { dates, habits }; 
+            match create_period_image(response, total_width, row_height) {
+                Ok(webp_data) => {
+                    Ok(HttpResponse::Ok()
                     .content_type("image/webp")
                     .body(webp_data))
-            }
-            Err(e) => {
-                println!("Error generating visualization: {:?}", e);
-                Err(actix_web::error::ErrorInternalServerError(e))
+                },
+                Err(e) => {
+                    println!("Error generating visualization: {:?}", e);
+                    Err(actix_web::error::ErrorInternalServerError(e))
+                }
             }
         }
     } else {
