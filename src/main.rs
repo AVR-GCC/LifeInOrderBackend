@@ -394,7 +394,7 @@ async fn get_user_extended_habits(
 }
 
 #[get("/users/{path_user_id}/list")]
-async fn get_habit_values(
+async fn get_user_list(
     pool: web::Data<DbPool>,
     path_user_id: web::Path<i32>,
     query: web::Query<std::collections::HashMap<String, String>>,
@@ -550,13 +550,13 @@ async fn main() -> std::io::Result<()> {
             .service(create_user_habit)
             .service(create_habit_value)
             .service(create_day_value)
-            .service(get_habit_values)
             .service(delete_user_habit)
             .service(reorder_user_habits)
             .service(reorder_habit_values)
             .service(update_habit_value)
             .service(update_user_habit)
             .service(delete_habit_value)
+            .service(get_user_list)
             //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
