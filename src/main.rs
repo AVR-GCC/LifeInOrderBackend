@@ -393,6 +393,24 @@ async fn get_user_extended_habits(
     Ok(habits)
 }
 
+#[get("/users/{path_user_id}/config")]
+async fn get_user_config(
+    pool: web::Data<DbPool>,
+    path_user_id: web::Path<i32>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let inner_user_id = path_user_id.into_inner();
+    // println!("Fetching user config for user_id: {}", inner_user_id);
+
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+
+    let config = get_user_extended_habits(&mut conn, inner_user_id).await?;
+
+    Ok(HttpResponse::Ok().json(config))
+}
+
 #[get("/users/{path_user_id}/list")]
 async fn get_user_list(
     pool: web::Data<DbPool>,
@@ -475,9 +493,9 @@ async fn get_user_list(
             let this_month_values = get_month_user_values_list(month, year, inner_user_id, &dates_map);
             let prev_month_values = get_month_user_values_list(prev_month, prev_year, inner_user_id, &dates_map);
             let next_month_values = get_month_user_values_list(next_month, next_year, inner_user_id, &dates_map);
-            let dates = [prev_month_values, this_month_values, next_month_values].concat();
-            let response = UserListResponse { dates, habits };
-            Ok(HttpResponse::Ok().json(response))
+            let mut dates = [prev_month_values, this_month_values, next_month_values].concat();
+            dates.reverse();
+            Ok(HttpResponse::Ok().json(dates))
         } else {
             let total_width: i32 = query.get("width")
                 .and_then(|w| w.parse().ok())
@@ -557,6 +575,7 @@ async fn main() -> std::io::Result<()> {
             .service(update_user_habit)
             .service(delete_habit_value)
             .service(get_user_list)
+            .service(get_user_config)
             //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
