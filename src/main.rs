@@ -493,8 +493,7 @@ async fn get_user_list(
             let this_month_values = get_month_user_values_list(month, year, inner_user_id, &dates_map);
             let prev_month_values = get_month_user_values_list(prev_month, prev_year, inner_user_id, &dates_map);
             let next_month_values = get_month_user_values_list(next_month, next_year, inner_user_id, &dates_map);
-            let mut dates = [prev_month_values, this_month_values, next_month_values].concat();
-            dates.reverse();
+            let dates = [prev_month_values, this_month_values, next_month_values];
             Ok(HttpResponse::Ok().json(dates))
         } else {
             let total_width: i32 = query.get("width")
@@ -515,7 +514,7 @@ async fn get_user_list(
 
             while current_month != end_month || current_year != end_year {
                 let mut month_values = get_month_user_values_list(current_month, current_year, inner_user_id, &dates_map);
-                dates.append(&mut month_values);
+                dates.append(&mut month_values.days);
                 if current_month == 12 {
                     current_month = 1;
                     current_year += 1;

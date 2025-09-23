@@ -15,6 +15,12 @@ pub struct DayValuesStruct {
     pub values: HashMap<i32, i32>
 }
 
+#[derive(Serialize, Clone, Debug)]
+pub struct MonthValuesStruct {
+    pub date: String,
+    pub days: Vec<DayValuesStruct>
+}
+
 #[derive(Serialize, Debug)]
 pub struct UserListResponse {
     pub dates: Vec<DayValuesStruct>,

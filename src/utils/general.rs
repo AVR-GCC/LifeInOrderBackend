@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id};
 use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id};
 use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, date as dv_date};
-use crate::utils::misc_types::{UserListResponse, DayValuesStruct};
+use crate::utils::misc_types::{MonthValuesStruct, UserListResponse, DayValuesStruct};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use diesel::ExpressionMethods;
@@ -16,10 +16,12 @@ pub fn get_month_user_values_list(
     year: i32,
     _user_id: i32,
     dates_map: &HashMap<String, HashMap<i32, i32>>,
-) -> Vec<DayValuesStruct> {
+) -> MonthValuesStruct {
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let max_date = min_date.checked_add_months(Months::new(1)).unwrap() - Duration::days(1);
-    fill_dates_list(Some(min_date), Some(max_date), dates_map)
+    let days = fill_dates_list(Some(min_date), Some(max_date), dates_map);
+    let date = format!("{}-{:02}-01", year, month);
+    MonthValuesStruct{ days, date }
 }
 
 pub fn fill_dates_list(
@@ -34,7 +36,7 @@ pub fn fill_dates_list(
     while current_date <= max_date {
         let date_str = current_date.to_string();
         let values = dates_map.get(&date_str).unwrap_or(&HashMap::new()).clone();
-        dates.push(DayValuesStruct { date: date_str, values: values });
+        dates.push(DayValuesStruct { date: date_str, values });
         current_date = current_date + Duration::days(1);
     }
     dates
