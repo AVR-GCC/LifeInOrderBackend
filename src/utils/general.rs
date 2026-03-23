@@ -95,10 +95,10 @@ pub fn create_period_image(
                     let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(200);
                     Rgb([r, g, b])
                 } else {
-                    Rgb([200, 200, 200]) // Default gray
+                    Rgb([200, 200, 200]) // Light gray for no data
                 }
             }
-            _ => Rgb([128, 128, 128]), // Light gray for no data
+            _ => Rgb([85, 85, 85]), // Default gray
         }
     }
 
