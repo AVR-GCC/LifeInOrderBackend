@@ -1,28 +1,43 @@
 mod config;
 use crate::config::Config;
-use actix_web::{get, put, post, delete, web, App, HttpResponse, HttpServer, middleware::Logger};
+use actix_web::{App, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 use diesel::dsl::now;
-use chrono::{NaiveDateTime, NaiveDate, Datelike, Duration};
 use log::debug;
-use utils::misc_types::SequenceUpdateRequest;
 use std::collections::HashMap;
 use std::str::FromStr;
+use utils::misc_types::SequenceUpdateRequest;
 
 #[macro_use]
 extern crate diesel_migrations;
-use diesel_migrations::{MigrationHarness, EmbeddedMigrations};
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
-use diesel::pg::PgConnection;
 
-use crate::db::schema::users::dsl::{users, id as u_id, name as u_name, email as u_email, created_at as u_created_at};
-use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id, habit_type as uh_habit_type, name as uh_name, weight as uh_weight, sequence as uh_sequence, created_at as uh_created_at};
-use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, label as hv_label, sequence as hv_sequence, habit_id as hv_habit_id, color as hv_color, created_at as hv_created_at};
-use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, date as dv_date, habit_id as dv_habit_id, text as dv_text, number as dv_number, created_at as dv_created_at};
-use crate::db::models::{User, NewUser, UserHabit, NewUserHabit, HabitValue, NewHabitValue, DayValue, NewDayValue};
-use crate::utils::misc_types::{UserListResponse, ExtendedUserHabit};
-use crate::utils::general::{create_period_image, get_user_values_dates_map, get_month_user_values_list};
+use crate::db::models::{
+    DayValue, HabitValue, NewDayValue, NewHabitValue, NewUser, NewUserHabit, User, UserHabit,
+};
+use crate::db::schema::day_values::dsl::{
+    created_at as dv_created_at, date as dv_date, day_values, habit_id as dv_habit_id,
+    number as dv_number, text as dv_text, value_id as dv_value_id,
+};
+use crate::db::schema::habit_values::dsl::{
+    color as hv_color, created_at as hv_created_at, habit_id as hv_habit_id, habit_values,
+    id as hv_id, label as hv_label, sequence as hv_sequence,
+};
+use crate::db::schema::user_habits::dsl::{
+    created_at as uh_created_at, habit_type as uh_habit_type, id as uh_id, name as uh_name,
+    sequence as uh_sequence, user_habits, user_id as uh_user_id, weight as uh_weight,
+};
+use crate::db::schema::users::dsl::{
+    created_at as u_created_at, email as u_email, id as u_id, name as u_name, users,
+};
+use crate::utils::general::{
+    create_period_image, get_month_user_values_list, get_user_values_dates_map,
+};
+use crate::utils::misc_types::{ExtendedUserHabit, UserListResponse};
 
 mod db;
 mod utils;
@@ -36,7 +51,7 @@ type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 //    Ok(())
 //}
 
-    //delay_and_return(5).await.unwrap();
+//delay_and_return(5).await.unwrap();
 
 #[post("/users")]
 async fn create_user(
@@ -64,7 +79,7 @@ async fn update_user_habit(
     pool: web::Data<DbPool>,
     req_body: web::Json<UserHabit>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let new_user_habit= req_body.into_inner();
+    let new_user_habit = req_body.into_inner();
     debug!(
         "Updating user_habit for name: {}, weight: {}, habit_type: {}",
         new_user_habit.name, new_user_habit.weight, new_user_habit.habit_type
@@ -77,9 +92,9 @@ async fn update_user_habit(
     let inserted = diesel::update(user_habits)
         .filter(uh_id.eq(new_user_habit.id))
         .set((
-                uh_name.eq(new_user_habit.name),
-                uh_weight.eq(new_user_habit.weight),
-                uh_habit_type.eq(new_user_habit.habit_type),
+            uh_name.eq(new_user_habit.name),
+            uh_weight.eq(new_user_habit.weight),
+            uh_habit_type.eq(new_user_habit.habit_type),
         ))
         .get_result::<UserHabit>(&mut conn)
         .map_err(|e| {
@@ -106,8 +121,8 @@ async fn delete_user_habit(
         debug!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
-    let result = diesel::delete(user_habits.filter(uh_id.eq(inner_user_habit_id)))
-        .execute(&mut conn);
+    let result =
+        diesel::delete(user_habits.filter(uh_id.eq(inner_user_habit_id))).execute(&mut conn);
     match result {
         Ok(0) => Ok(HttpResponse::NotFound().json("User not found")),
         Ok(_) => Ok(HttpResponse::Ok().json("User deleted")),
@@ -189,7 +204,8 @@ async fn update_habit_value(
     let new_habit_value = req_body.into_inner();
     debug!(
         "Updating user_habit for habit_id: {}, color: {}",
-        new_habit_value.habit_id, new_habit_value.color.clone().unwrap_or("".to_string())
+        new_habit_value.habit_id,
+        new_habit_value.color.clone().unwrap_or("".to_string())
     );
 
     let mut conn = pool.get().map_err(|e| {
@@ -199,8 +215,8 @@ async fn update_habit_value(
     let inserted = diesel::update(habit_values)
         .filter(hv_id.eq(new_habit_value.id))
         .set((
-                hv_label.eq(new_habit_value.label),
-                hv_color.eq(new_habit_value.color)
+            hv_label.eq(new_habit_value.label),
+            hv_color.eq(new_habit_value.color),
         ))
         .get_result::<HabitValue>(&mut conn)
         .map_err(|e| {
@@ -220,7 +236,8 @@ async fn create_habit_value(
     let new_habit_value = req_body.into_inner();
     debug!(
         "Creating user_habit for habit_id: {}, color: {}",
-        new_habit_value.habit_id, new_habit_value.color.clone().unwrap_or("".to_string())
+        new_habit_value.habit_id,
+        new_habit_value.color.clone().unwrap_or("".to_string())
     );
 
     let mut conn = pool.get().map_err(|e| {
@@ -290,8 +307,8 @@ async fn delete_habit_value(
         debug!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
-    let result = diesel::delete(habit_values.filter(hv_id.eq(inner_habit_value_id)))
-        .execute(&mut conn);
+    let result =
+        diesel::delete(habit_values.filter(hv_id.eq(inner_habit_value_id))).execute(&mut conn);
     match result {
         Ok(0) => Ok(HttpResponse::NotFound().json("User not found")),
         Ok(_) => Ok(HttpResponse::Ok().json("User deleted")),
@@ -310,9 +327,15 @@ async fn create_day_value(
     let new_day_value = req_body.into_inner();
     println!(
         "Creating day_value for value_id: {}, habit_id: {}, date: {}, text: {}, number: {}",
-        new_day_value.value_id, new_day_value.habit_id, new_day_value.date, new_day_value.text.clone().unwrap_or("".to_string()), new_day_value.number.clone().unwrap_or(0)
+        new_day_value.value_id,
+        new_day_value.habit_id,
+        new_day_value.date,
+        new_day_value.text.clone().unwrap_or("".to_string()),
+        new_day_value.number.clone().unwrap_or(0)
     );
-    let mut conn = pool.get().map_err(actix_web::error::ErrorInternalServerError)?;
+    let mut conn = pool
+        .get()
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     let inserted = diesel::insert_into(day_values)
         .values(&new_day_value.clone())
         .on_conflict((dv_date, dv_habit_id))
@@ -321,7 +344,7 @@ async fn create_day_value(
             dv_value_id.eq(new_day_value.value_id),
             dv_text.eq(new_day_value.text),
             dv_number.eq(new_day_value.number),
-            dv_created_at.eq(now)
+            dv_created_at.eq(now),
         ))
         .get_result::<DayValue>(&mut conn)
         .map_err(actix_web::error::ErrorInternalServerError)?;
@@ -333,17 +356,36 @@ async fn get_user_extended_habits(
     conn: &mut PgConnection,
     user_id: i32,
 ) -> Result<Vec<ExtendedUserHabit>, actix_web::Error> {
-
     let habit_value = user_habits
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .filter(uh_user_id.eq(user_id))
         .select((
-            uh_id, uh_name, uh_weight, uh_sequence, uh_habit_type, uh_user_id, uh_created_at,
-            hv_id, hv_label, hv_sequence, hv_color, hv_created_at
+            uh_id,
+            uh_name,
+            uh_weight,
+            uh_sequence,
+            uh_habit_type,
+            uh_user_id,
+            uh_created_at,
+            hv_id,
+            hv_label,
+            hv_sequence,
+            hv_color,
+            hv_created_at,
         ))
         .load::<(
-            i32, String, i32, i32, String, i32, NaiveDateTime,
-            i32, Option<String>, i32, Option<String>, NaiveDateTime
+            i32,
+            String,
+            i32,
+            i32,
+            String,
+            i32,
+            NaiveDateTime,
+            i32,
+            Option<String>,
+            i32,
+            Option<String>,
+            NaiveDateTime,
         )>(conn)
         .map_err(|e| {
             debug!("Query error: {:?}", e);
@@ -353,9 +395,20 @@ async fn get_user_extended_habits(
     let mut habits_map: HashMap<i32, ExtendedUserHabit> = HashMap::new();
 
     for (
-        habit_id, habit_name, habit_weight, habit_sequence, habit_type, habit_user_id, habit_created_at,
-        value_id, value_label, value_sequence, value_color, value_created_at
-    ) in habit_value {
+        habit_id,
+        habit_name,
+        habit_weight,
+        habit_sequence,
+        habit_type,
+        habit_user_id,
+        habit_created_at,
+        value_id,
+        value_label,
+        value_sequence,
+        value_color,
+        value_created_at,
+    ) in habit_value
+    {
         // Habits: habit_id -> details with values
         let habit_entry = habits_map.entry(habit_id).or_insert(ExtendedUserHabit {
             habit: UserHabit {
@@ -365,7 +418,7 @@ async fn get_user_extended_habits(
                 sequence: habit_sequence,
                 habit_type,
                 user_id: habit_user_id,
-                created_at: habit_created_at
+                created_at: habit_created_at,
             },
             values: Vec::new(),
             values_hashmap: HashMap::new(),
@@ -436,11 +489,16 @@ async fn get_user_list(
                 let next_next_month = if next_month == 12 { 1 } else { next_month + 1 };
                 let prev_year = if month == 1 { year - 1 } else { year };
                 let next_year = if month == 12 { year + 1 } else { year };
-                let next_next_year = if next_month == 12 { next_year + 1 } else { next_year };
+                let next_next_year = if next_month == 12 {
+                    next_year + 1
+                } else {
+                    next_year
+                };
                 let from_date = NaiveDate::from_ymd_opt(prev_year, prev_month, 1).unwrap();
-                let to_date = NaiveDate::from_ymd_opt(next_next_year, next_next_month, 1).unwrap() - Duration::days(1);
+                let to_date = NaiveDate::from_ymd_opt(next_next_year, next_next_month, 1).unwrap()
+                    - Duration::days(1);
                 (from_date, to_date)
-            },
+            }
             "quarter" => {
                 let month = date.month();
                 let quarter = (month - 1) / 3;
@@ -449,9 +507,12 @@ async fn get_user_list(
                 let first_month_of_next_quarter = if is_last_quarter { 1 } else { first_month + 3 };
                 let year_of_next_quarter = if is_last_quarter { year + 1 } else { year };
                 let from_date = NaiveDate::from_ymd_opt(year, first_month, 1).unwrap();
-                let to_date = NaiveDate::from_ymd_opt(year_of_next_quarter, first_month_of_next_quarter, 1).unwrap() - Duration::days(1);
+                let to_date =
+                    NaiveDate::from_ymd_opt(year_of_next_quarter, first_month_of_next_quarter, 1)
+                        .unwrap()
+                        - Duration::days(1);
                 (from_date, to_date)
-            },
+            }
             "half" => {
                 let month = date.month();
                 if month <= 6 {
@@ -460,29 +521,39 @@ async fn get_user_list(
                     (from_date, to_date)
                 } else {
                     let from_date = NaiveDate::from_ymd_opt(year, 7, 1).unwrap();
-                    let to_date = NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - Duration::days(1);
+                    let to_date =
+                        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - Duration::days(1);
                     (from_date, to_date)
                 }
-            },
+            }
             "year" => {
                 let from_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
                 let to_date = NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - Duration::days(1);
                 (from_date, to_date)
-            },
+            }
             "two_year" => {
-                let first_year = if date.year() % 2 == 0 { date.year() } else { date.year() - 1 };
+                let first_year = if date.year() % 2 == 0 {
+                    date.year()
+                } else {
+                    date.year() - 1
+                };
                 let second_year = first_year + 1;
                 let from_date = NaiveDate::from_ymd_opt(first_year, 1, 1).unwrap();
-                let to_date = NaiveDate::from_ymd_opt(second_year + 1, 1, 1).unwrap() - Duration::days(1);
+                let to_date =
+                    NaiveDate::from_ymd_opt(second_year + 1, 1, 1).unwrap() - Duration::days(1);
                 (from_date, to_date)
-            },
+            }
             _ => (date, date),
         };
 
-        let dates_map = get_user_values_dates_map(&mut conn, inner_user_id, Some(start_date), Some(end_date)).await?;
+        let dates_map =
+            get_user_values_dates_map(&mut conn, inner_user_id, Some(start_date), Some(end_date))
+                .await?;
 
-        let habits = get_user_extended_habits(&mut conn, inner_user_id).await.map_err(actix_web::error::ErrorInternalServerError)?;
         println!("start_date: {}, end_date: {}", start_date, end_date);
+        let habits = get_user_extended_habits(&mut conn, inner_user_id)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
         if zoom == "day" {
             let month = date.month();
@@ -490,13 +561,17 @@ async fn get_user_list(
             let next_month = if month == 12 { 1 } else { month + 1 };
             let prev_year = if month == 1 { year - 1 } else { year };
             let next_year = if month == 12 { year + 1 } else { year };
-            let this_month_values = get_month_user_values_list(month, year, inner_user_id, &dates_map);
-            let prev_month_values = get_month_user_values_list(prev_month, prev_year, inner_user_id, &dates_map);
-            let next_month_values = get_month_user_values_list(next_month, next_year, inner_user_id, &dates_map);
+            let this_month_values =
+                get_month_user_values_list(month, year, inner_user_id, &dates_map);
+            let prev_month_values =
+                get_month_user_values_list(prev_month, prev_year, inner_user_id, &dates_map);
+            let next_month_values =
+                get_month_user_values_list(next_month, next_year, inner_user_id, &dates_map);
             let dates = [prev_month_values, this_month_values, next_month_values];
             Ok(HttpResponse::Ok().json(dates))
         } else {
-            let total_width: i32 = query.get("width")
+            let total_width: i32 = query
+                .get("width")
                 .and_then(|w| w.parse().ok())
                 .unwrap_or(1080);
             let row_height = match zoom.as_str() {
@@ -513,7 +588,12 @@ async fn get_user_list(
             let end_year = end_date.year();
 
             while current_month != end_month || current_year != end_year {
-                let mut month_values = get_month_user_values_list(current_month, current_year, inner_user_id, &dates_map);
+                let mut month_values = get_month_user_values_list(
+                    current_month,
+                    current_year,
+                    inner_user_id,
+                    &dates_map,
+                );
                 dates.append(&mut month_values.days);
                 if current_month == 12 {
                     current_month = 1;
@@ -524,11 +604,9 @@ async fn get_user_list(
             }
             let response = UserListResponse { dates, habits }; 
             match create_period_image(response, total_width, row_height) {
-                Ok(webp_data) => {
-                    Ok(HttpResponse::Ok()
+                Ok(webp_data) => Ok(HttpResponse::Ok()
                     .content_type("image/webp")
-                    .body(webp_data))
-                },
+                    .body(webp_data)),
                 Err(e) => {
                     println!("Error generating visualization: {:?}", e);
                     Err(actix_web::error::ErrorInternalServerError(e))
@@ -536,7 +614,10 @@ async fn get_user_list(
             }
         }
     } else {
-        Ok(HttpResponse::Ok().json(UserListResponse { dates: Vec::new(), habits: Vec::new() }))
+        Ok(HttpResponse::Ok().json(UserListResponse {
+            dates: Vec::new(),
+            habits: Vec::new(),
+        }))
     }
 }
 
@@ -546,8 +627,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     // config
-    let c = Config::from_env()
-        .expect("Server Configuration");
+    let c = Config::from_env().expect("Server Configuration");
 
     // db
     let manager = ConnectionManager::<PgConnection>::new(&c.database_url);
@@ -555,8 +635,11 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Failed to create pool");
 
-    let mut conn = pool.get().map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    conn.run_pending_migrations(MIGRATIONS).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let mut conn = pool
+        .get()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    conn.run_pending_migrations(MIGRATIONS)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     // run
     HttpServer::new(move || {
@@ -575,7 +658,7 @@ async fn main() -> std::io::Result<()> {
             .service(delete_habit_value)
             .service(get_user_list)
             .service(get_user_config)
-            //.route("/hey", web::get().to(manual_hello))
+        //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
     .run()
