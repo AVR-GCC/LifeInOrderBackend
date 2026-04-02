@@ -1,6 +1,6 @@
-use crate::db::models::{UserHabit, HabitValue};
-use serde::{Serialize, Deserialize};
 use crate::HashMap;
+use crate::db::models::{HabitValue, UserHabit};
+use serde::{Deserialize, Serialize};
 #[derive(Serialize, Clone, Debug)]
 pub struct DateRange {
     pub start: String,
@@ -17,13 +17,13 @@ pub struct ExtendedUserHabit {
 #[derive(Serialize, Clone, Debug)]
 pub struct DayValuesStruct {
     pub date: String,
-    pub values: HashMap<i32, i32>
+    pub values: HashMap<i32, i32>,
 }
 
 #[derive(Serialize, Clone, Debug)]
 pub struct MonthValuesStruct {
-    pub days: Vec<DayValuesStruct>
     pub range: DateRange,
+    pub days: Vec<DayValuesStruct>,
 }
 
 #[derive(Serialize, Debug)]
