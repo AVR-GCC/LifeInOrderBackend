@@ -138,25 +138,30 @@ async fn reorder_user_habits(
     pool: web::Data<DbPool>,
     req: web::Json<SequenceUpdateRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
-   let user_habit_ids = req.into_inner().ordered_ids.clone();
+    let user_habit_ids = req.into_inner().ordered_ids.clone();
 
-   let result: Result<_, actix_web::Error> = Ok(web::block(move || {
-       let mut connection = pool.get().map_err(|e| {
-           debug!("Pool error: {:?}", e);
-           actix_web::error::ErrorInternalServerError(e)
-       }).expect("Connection to db failed");
+    let result: Result<_, actix_web::Error> = Ok(web::block(move || {
+        let mut connection = pool
+            .get()
+            .map_err(|e| {
+                debug!("Pool error: {:?}", e);
+                actix_web::error::ErrorInternalServerError(e)
+            })
+            .expect("Connection to db failed");
 
-       let _ = connection.transaction(|conn| {
-           for (index, user_habit_id) in user_habit_ids.iter().enumerate() {
-               diesel::update(user_habits.filter(uh_id.eq(user_habit_id)))
-                   .set(uh_sequence.eq(index as i32 + 1))
-                   .execute(conn)?;
-               }
-           diesel::result::QueryResult::Ok(())
-       }).map_err(|e| {
-           debug!("Pool error: {:?}", e);
-           actix_web::error::ErrorInternalServerError(e)
-       });
+        let _ = connection
+            .transaction(|conn| {
+                for (index, user_habit_id) in user_habit_ids.iter().enumerate() {
+                    diesel::update(user_habits.filter(uh_id.eq(user_habit_id)))
+                        .set(uh_sequence.eq(index as i32 + 1))
+                        .execute(conn)?;
+                }
+                diesel::result::QueryResult::Ok(())
+            })
+            .map_err(|e| {
+                debug!("Pool error: {:?}", e);
+                actix_web::error::ErrorInternalServerError(e)
+            });
     })
     .await);
 
