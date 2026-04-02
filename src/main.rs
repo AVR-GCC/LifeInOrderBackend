@@ -37,7 +37,7 @@ use crate::db::schema::users::dsl::{
 use crate::utils::general::{
     create_period_image, get_month_user_values_list, get_user_values_dates_map,
 };
-use crate::utils::misc_types::{ExtendedUserHabit, UserListResponse};
+use crate::utils::misc_types::{ExtendedUserHabit, UserListResponse, ZoomLevel};
 
 mod db;
 mod utils;
@@ -496,8 +496,8 @@ async fn get_user_list(
     if let (Some(date), Some(zoom)) = (query.get("date"), query.get("zoom")) {
         let date = NaiveDate::from_str(date).unwrap();
         let year = date.year();
-        let (start_date, end_date) = match zoom.as_str() {
-            "day" => {
+        let (start_date, end_date) = match zoom.parse() {
+            Ok(ZoomLevel::Day) => {
                 let month = date.month();
                 let prev_month = if month == 1 { 12 } else { month - 1 };
                 let next_month = if month == 12 { 1 } else { month + 1 };
@@ -514,7 +514,7 @@ async fn get_user_list(
                     - Duration::days(1);
                 (from_date, to_date)
             }
-            "quarter" => {
+            Ok(ZoomLevel::Quarter) => {
                 let month = date.month();
                 let quarter = (month - 1) / 3;
                 let is_last_quarter = quarter == 3;
@@ -528,7 +528,7 @@ async fn get_user_list(
                         - Duration::days(1);
                 (from_date, to_date)
             }
-            "half" => {
+            Ok(ZoomLevel::Half) => {
                 let month = date.month();
                 if month <= 6 {
                     let from_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
@@ -541,12 +541,12 @@ async fn get_user_list(
                     (from_date, to_date)
                 }
             }
-            "year" => {
+            Ok(ZoomLevel::Year) => {
                 let from_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
                 let to_date = NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - Duration::days(1);
                 (from_date, to_date)
             }
-            "two_year" => {
+            Ok(ZoomLevel::TwoYear) => {
                 let first_year = if date.year() % 2 == 0 {
                     date.year()
                 } else {

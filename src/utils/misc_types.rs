@@ -1,6 +1,31 @@
 use crate::HashMap;
 use crate::db::models::{HabitValue, UserHabit};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+
+pub enum ZoomLevel {
+    Day,
+    Quarter,
+    Half,
+    Year,
+    TwoYear,
+}
+
+impl FromStr for ZoomLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "day" => Ok(ZoomLevel::Day),
+            "quarter" => Ok(ZoomLevel::Quarter),
+            "half" => Ok(ZoomLevel::Half),
+            "year" => Ok(ZoomLevel::Year),
+            "two_year" => Ok(ZoomLevel::TwoYear),
+            _ => Err(format!("{s} is not a valid zoom value")),
+        }
+    }
+}
+
 #[derive(Serialize, Clone, Debug)]
 pub struct DateRange {
     pub start: String,
