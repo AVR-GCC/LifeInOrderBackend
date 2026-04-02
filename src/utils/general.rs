@@ -1,7 +1,7 @@
-use crate::utils::misc_types::{MonthValuesStruct, UserListResponse, DayValuesStruct};
 use crate::db::schema::day_values::dsl::{date as dv_date, day_values, value_id as dv_value_id};
 use crate::db::schema::habit_values::dsl::{habit_id as hv_habit_id, habit_values, id as hv_id};
 use crate::db::schema::user_habits::dsl::{id as uh_id, user_habits, user_id as uh_user_id};
+use crate::utils::misc_types::{DateRange, DayValuesStruct, MonthValuesStruct, UserListResponse};
 use chrono::{Datelike, Duration, Months, NaiveDate};
 use diesel::ExpressionMethods;
 use diesel::JoinOnDsl;
@@ -20,8 +20,15 @@ pub fn get_month_user_values_list(
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let max_date = min_date.checked_add_months(Months::new(1)).unwrap() - Duration::days(1);
     let days = fill_dates_list(Some(min_date), Some(max_date), dates_map);
-    let date = format!("{}-{:02}-01", year, month);
-    MonthValuesStruct{ days, date }
+    let start = format!("{}-{:02}-01", year, month);
+    let end = format!(
+        "{}-{:02}-{:02}",
+        max_date.year(),
+        max_date.month(),
+        max_date.day()
+    );
+    let range = DateRange { start, end };
+    MonthValuesStruct { days, range }
 }
 
 pub fn fill_dates_list(
