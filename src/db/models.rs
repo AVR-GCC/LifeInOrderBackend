@@ -1,12 +1,12 @@
-use std::io::Write;
-use diesel::prelude::*;
+use chrono::{NaiveDate, NaiveDateTime};
 use diesel::backend::Backend;
 use diesel::deserialize::{self, FromSql};
-use diesel::serialize::{self, ToSql, Output};
 use diesel::pg::Pg;
+use diesel::prelude::*;
+use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Text;
-use serde::{Serialize, Deserialize};
-use chrono::{NaiveDate, NaiveDateTime};
+use serde::{Deserialize, Serialize};
+use std::io::Write;
 
 #[derive(Serialize)]
 pub struct DayColor {
@@ -19,14 +19,14 @@ pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
-    pub created_at: NaiveDateTime
+    pub created_at: NaiveDateTime,
 }
 
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::users)]
 pub struct NewUser {
     pub name: String,
-    pub email: String
+    pub email: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
