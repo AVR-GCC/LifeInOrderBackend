@@ -1,14 +1,15 @@
-use std::collections::HashMap;
-use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id};
-use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id};
-use crate::db::schema::day_values::dsl::{day_values, value_id as dv_value_id, date as dv_date};
 use crate::utils::misc_types::{MonthValuesStruct, UserListResponse, DayValuesStruct};
-use diesel::prelude::*;
-use diesel::pg::PgConnection;
+use crate::db::schema::day_values::dsl::{date as dv_date, day_values, value_id as dv_value_id};
+use crate::db::schema::habit_values::dsl::{habit_id as hv_habit_id, habit_values, id as hv_id};
+use crate::db::schema::user_habits::dsl::{id as uh_id, user_habits, user_id as uh_user_id};
+use chrono::{Datelike, Duration, Months, NaiveDate};
 use diesel::ExpressionMethods;
 use diesel::JoinOnDsl;
 use diesel::QueryDsl;
+use diesel::pg::PgConnection;
+use diesel::prelude::*;
 use image::{ImageBuffer, Rgb};
+use std::collections::HashMap;
 
 pub fn get_month_user_values_list(
     month: u32,
@@ -27,7 +28,7 @@ pub fn fill_dates_list(
     from_date: Option<NaiveDate>,
     to_date: Option<NaiveDate>,
     dates_map: &HashMap<String, HashMap<i32, i32>>,
-    ) -> Vec<DayValuesStruct> {
+) -> Vec<DayValuesStruct> {
     let min_date = from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
     let max_date = to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap());
     let mut dates: Vec<DayValuesStruct> = Vec::new();
@@ -35,7 +36,10 @@ pub fn fill_dates_list(
     while current_date <= max_date {
         let date_str = current_date.to_string();
         let values = dates_map.get(&date_str).unwrap_or(&HashMap::new()).clone();
-        dates.push(DayValuesStruct { date: date_str, values });
+        dates.push(DayValuesStruct {
+            date: date_str,
+            values,
+        });
         current_date = current_date + Duration::days(1);
     }
     dates
@@ -53,11 +57,7 @@ pub async fn get_user_values_dates_map(
         .filter(dv_date.ge(from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap())))
         .filter(dv_date.le(to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap())))
         .filter(uh_user_id.eq(user_id))
-        .select((
-            uh_id,
-            dv_date,
-            dv_value_id,
-        ))
+        .select((uh_id, dv_date, dv_value_id))
         .order(dv_date.asc())
         .load::<(i32, NaiveDate, i32)>(conn)
         .map_err(|e| {
@@ -78,6 +78,7 @@ pub async fn get_user_values_dates_map(
 
     Ok(dates_map)
 }
+
 pub fn create_period_image(
     data: UserListResponse,
     total_width: i32,
@@ -102,11 +103,12 @@ pub fn create_period_image(
     }
 
     // Find date range
-    let dates: Vec<NaiveDate> = data.dates
+    let dates: Vec<NaiveDate> = data
+        .dates
         .iter()
         .filter_map(|d| d.date.parse().ok())
         .collect();
-    
+
     if dates.is_empty() {
         return Err("No valid dates found".into());
     }
@@ -116,7 +118,7 @@ pub fn create_period_image(
 
     // Calculate total weight for proportional width calculation
     let total_weight: i32 = data.habits.iter().map(|h| h.habit.weight).sum();
-    
+
     if total_weight == 0 {
         return Err("Total habit weight is zero".into());
     }
@@ -134,7 +136,8 @@ pub fn create_period_image(
 
             // Find the corresponding habit value and its color
             let color = if let Some(&val_id) = value_id {
-                habit.values
+                habit
+                    .values
                     .iter()
                     .find(|v| v.id == val_id)
                     .map(|v| &v.color)
@@ -162,7 +165,9 @@ pub fn create_period_image(
 
                     if row_offset + pixels_to_fill <= buffer.len() {
                         // Fill the entire row segment at once using chunks
-                        for chunk in buffer[row_offset..row_offset + pixels_to_fill].chunks_exact_mut(3) {
+                        for chunk in
+                            buffer[row_offset..row_offset + pixels_to_fill].chunks_exact_mut(3)
+                        {
                             chunk[0] = rgb_color.0[0]; // R
                             chunk[1] = rgb_color.0[1]; // G
                             chunk[2] = rgb_color.0[2]; // B
@@ -177,7 +182,12 @@ pub fn create_period_image(
     // Encode as WebP
     let mut webp_data = Vec::new();
     let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut webp_data);
-    encoder.encode(&img, img.width(), img.height(), image::ColorType::Rgb8.into())?;
-    
+    encoder.encode(
+        &img,
+        img.width(),
+        img.height(),
+        image::ColorType::Rgb8.into(),
+    )?;
+
     Ok(webp_data)
 }
