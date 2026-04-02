@@ -266,25 +266,30 @@ async fn reorder_habit_values(
     pool: web::Data<DbPool>,
     req: web::Json<SequenceUpdateRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
-   let habit_value_ids = req.into_inner().ordered_ids.clone();
+    let habit_value_ids = req.into_inner().ordered_ids.clone();
 
-   let result: Result<_, actix_web::Error> = Ok(web::block(move || {
-       let mut connection = pool.get().map_err(|e| {
-           debug!("Pool error: {:?}", e);
-           actix_web::error::ErrorInternalServerError(e)
-       }).expect("Connection to db failed");
+    let result: Result<_, actix_web::Error> = Ok(web::block(move || {
+        let mut connection = pool
+            .get()
+            .map_err(|e| {
+                debug!("Pool error: {:?}", e);
+                actix_web::error::ErrorInternalServerError(e)
+            })
+            .expect("Connection to db failed");
 
-       let _ = connection.transaction(|conn| {
-           for (index, habit_value_id) in habit_value_ids.iter().enumerate() {
-               diesel::update(habit_values.filter(hv_id.eq(habit_value_id)))
-                   .set(hv_sequence.eq(index as i32 + 1))
-                   .execute(conn)?;
-               }
-           diesel::result::QueryResult::Ok(())
-       }).map_err(|e| {
-           debug!("Pool error: {:?}", e);
-           actix_web::error::ErrorInternalServerError(e)
-       });
+        let _ = connection
+            .transaction(|conn| {
+                for (index, habit_value_id) in habit_value_ids.iter().enumerate() {
+                    diesel::update(habit_values.filter(hv_id.eq(habit_value_id)))
+                        .set(hv_sequence.eq(index as i32 + 1))
+                        .execute(conn)?;
+                }
+                diesel::result::QueryResult::Ok(())
+            })
+            .map_err(|e| {
+                debug!("Pool error: {:?}", e);
+                actix_web::error::ErrorInternalServerError(e)
+            });
     })
     .await);
 
@@ -438,13 +443,18 @@ async fn get_user_extended_habits(
         });
     }
 
-    let mut habits: Vec<ExtendedUserHabit> = habits_map.into_iter().map(|(_, mut habit)| {
-        habit.values.sort_by(|a, b| a.sequence.cmp(&b.sequence));
-        for (index, value) in habit.values.iter().enumerate() {
-            habit.values_hashmap.insert(value.id, index.try_into().unwrap());
-        };
-        habit
-    }).collect();
+    let mut habits: Vec<ExtendedUserHabit> = habits_map
+        .into_iter()
+        .map(|(_, mut habit)| {
+            habit.values.sort_by(|a, b| a.sequence.cmp(&b.sequence));
+            for (index, value) in habit.values.iter().enumerate() {
+                habit
+                    .values_hashmap
+                    .insert(value.id, index.try_into().unwrap());
+            }
+            habit
+        })
+        .collect();
 
     habits.sort_by(|a, b| a.habit.sequence.cmp(&b.habit.sequence));
 
@@ -607,7 +617,7 @@ async fn get_user_list(
                     current_month += 1;
                 }
             }
-            let response = UserListResponse { dates, habits }; 
+            let response = UserListResponse { dates, habits };
             match create_period_image(response, total_width, row_height) {
                 Ok(webp_data) => Ok(HttpResponse::Ok()
                     .content_type("image/webp")
