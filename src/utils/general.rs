@@ -1,5 +1,3 @@
-use image::{ImageBuffer, Rgb};
-use chrono::{Duration, NaiveDate, Months};
 use std::collections::HashMap;
 use crate::db::schema::user_habits::dsl::{user_habits, id as uh_id, user_id as uh_user_id};
 use crate::db::schema::habit_values::dsl::{habit_values, id as hv_id, habit_id as hv_habit_id};
@@ -10,6 +8,7 @@ use diesel::pg::PgConnection;
 use diesel::ExpressionMethods;
 use diesel::JoinOnDsl;
 use diesel::QueryDsl;
+use image::{ImageBuffer, Rgb};
 
 pub fn get_month_user_values_list(
     month: u32,
