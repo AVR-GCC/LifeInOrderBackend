@@ -35,7 +35,7 @@ use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, name as u_name, users,
 };
 use crate::utils::general::{
-    create_period_image, get_month_user_values_list, get_user_values_dates_map,
+    create_period_image, get_month_user_values_list, get_next_date, get_user_values_dates_map,
 };
 use crate::utils::misc_types::{ExtendedUserHabit, UserListResponse, ZoomLevel};
 
@@ -493,107 +493,52 @@ async fn get_user_list(
         actix_web::error::ErrorInternalServerError(e)
     })?;
 
-    if let (Some(date), Some(zoom)) = (query.get("date"), query.get("zoom")) {
+    if let (Some(date), Some(zoom), Some(count)) =
+        (query.get("date"), query.get("zoom"), query.get("count"))
+    {
         let date = NaiveDate::from_str(date).unwrap();
+        let count: u32 = u32::from_str(count).unwrap();
+        let zoom: ZoomLevel = zoom.parse().unwrap();
         let year = date.year();
-        let (start_date, end_date) = match zoom.parse() {
-            Ok(ZoomLevel::Day) => {
-                let month = date.month();
-                let prev_month = if month == 1 { 12 } else { month - 1 };
-                let next_month = if month == 12 { 1 } else { month + 1 };
-                let next_next_month = if next_month == 12 { 1 } else { next_month + 1 };
-                let prev_year = if month == 1 { year - 1 } else { year };
-                let next_year = if month == 12 { year + 1 } else { year };
-                let next_next_year = if next_month == 12 {
-                    next_year + 1
-                } else {
-                    next_year
-                };
-                let from_date = NaiveDate::from_ymd_opt(prev_year, prev_month, 1).unwrap();
-                let to_date = NaiveDate::from_ymd_opt(next_next_year, next_next_month, 1).unwrap()
-                    - Duration::days(1);
-                (from_date, to_date)
-            }
-            Ok(ZoomLevel::Quarter) => {
-                let month = date.month();
-                let quarter = (month - 1) / 3;
-                let is_last_quarter = quarter == 3;
-                let first_month = quarter * 3 + 1;
-                let first_month_of_next_quarter = if is_last_quarter { 1 } else { first_month + 3 };
-                let year_of_next_quarter = if is_last_quarter { year + 1 } else { year };
-                let from_date = NaiveDate::from_ymd_opt(year, first_month, 1).unwrap();
-                let to_date =
-                    NaiveDate::from_ymd_opt(year_of_next_quarter, first_month_of_next_quarter, 1)
-                        .unwrap()
-                        - Duration::days(1);
-                (from_date, to_date)
-            }
-            Ok(ZoomLevel::Half) => {
-                let month = date.month();
-                if month <= 6 {
-                    let from_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
-                    let to_date = NaiveDate::from_ymd_opt(year, 7, 1).unwrap() - Duration::days(1);
-                    (from_date, to_date)
-                } else {
-                    let from_date = NaiveDate::from_ymd_opt(year, 7, 1).unwrap();
-                    let to_date =
-                        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - Duration::days(1);
-                    (from_date, to_date)
-                }
-            }
-            Ok(ZoomLevel::Year) => {
-                let from_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
-                let to_date = NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - Duration::days(1);
-                (from_date, to_date)
-            }
-            Ok(ZoomLevel::TwoYear) => {
-                let first_year = if date.year() % 2 == 0 {
-                    date.year()
-                } else {
-                    date.year() - 1
-                };
-                let second_year = first_year + 1;
-                let from_date = NaiveDate::from_ymd_opt(first_year, 1, 1).unwrap();
-                let to_date =
-                    NaiveDate::from_ymd_opt(second_year + 1, 1, 1).unwrap() - Duration::days(1);
-                (from_date, to_date)
-            }
-            _ => (date, date),
-        };
+        let month = date.month();
+        let start_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+        let (mut to_month, mut to_year) = (month, year);
+        for _ in 0..count {
+            (to_month, to_year) = get_next_date((to_month, to_year), zoom);
+        }
+        let end_date = NaiveDate::from_ymd_opt(to_year, to_month, 1).unwrap();
 
+        dbg!(date);
+        dbg!(start_date);
+        dbg!(end_date);
         let dates_map =
             get_user_values_dates_map(&mut conn, inner_user_id, Some(start_date), Some(end_date))
                 .await?;
 
-        println!("start_date: {}, end_date: {}", start_date, end_date);
         let habits = get_user_extended_habits(&mut conn, inner_user_id)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
-        if zoom == "day" {
-            let month = date.month();
-            let prev_month = if month == 1 { 12 } else { month - 1 };
-            let next_month = if month == 12 { 1 } else { month + 1 };
-            let prev_year = if month == 1 { year - 1 } else { year };
-            let next_year = if month == 12 { year + 1 } else { year };
-            let this_month_values =
-                get_month_user_values_list(month, year, inner_user_id, &dates_map);
-            let prev_month_values =
-                get_month_user_values_list(prev_month, prev_year, inner_user_id, &dates_map);
-            let next_month_values =
-                get_month_user_values_list(next_month, next_year, inner_user_id, &dates_map);
-            let dates = [prev_month_values, this_month_values, next_month_values];
+        if matches!(zoom, ZoomLevel::Day) {
+            let mut dates = Vec::new();
+            let (mut cur_month, mut cur_year) = (month, year);
+            for _ in 0..count {
+                let month_values =
+                    get_month_user_values_list(cur_month, cur_year, inner_user_id, &dates_map);
+                dates.push(month_values);
+                (cur_month, cur_year) = get_next_date((cur_month, cur_year), zoom);
+            }
             Ok(HttpResponse::Ok().json(dates))
         } else {
             let total_width: i32 = query
                 .get("width")
                 .and_then(|w| w.parse().ok())
                 .unwrap_or(1080);
-            let row_height = match zoom.as_str() {
-                "quarter" => 8,
-                "half" => 4,
-                "year" => 2,
-                "two_year" => 1,
+            let row_height = match zoom {
+                ZoomLevel::Quarter => 8,
+                ZoomLevel::Half => 4,
+                ZoomLevel::Year => 2,
+                ZoomLevel::TwoYear => 1,
                 _ => 1,
             };
             let mut dates = Vec::new();

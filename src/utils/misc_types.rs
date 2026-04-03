@@ -1,14 +1,31 @@
 use crate::HashMap;
 use crate::db::models::{HabitValue, UserHabit};
+use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
+pub type MonthYear = (u32, i32);
+
+#[derive(Clone, Copy)]
 pub enum ZoomLevel {
-    Day,
-    Quarter,
-    Half,
-    Year,
-    TwoYear,
+    Day = 1,
+    Quarter = 3,
+    Half = 6,
+    Year = 12,
+    TwoYear = 24,
+}
+
+impl fmt::Display for ZoomLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            ZoomLevel::Day => "day",
+            ZoomLevel::Quarter => "quarter",
+            ZoomLevel::Half => "half",
+            ZoomLevel::Year => "year",
+            ZoomLevel::TwoYear => "two_year",
+        };
+        write!(f, "{s}")
+    }
 }
 
 impl FromStr for ZoomLevel {

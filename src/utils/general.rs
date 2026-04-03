@@ -1,7 +1,9 @@
 use crate::db::schema::day_values::dsl::{date as dv_date, day_values, value_id as dv_value_id};
 use crate::db::schema::habit_values::dsl::{habit_id as hv_habit_id, habit_values, id as hv_id};
 use crate::db::schema::user_habits::dsl::{id as uh_id, user_habits, user_id as uh_user_id};
-use crate::utils::misc_types::{DateRange, DayValuesStruct, MonthValuesStruct, UserListResponse};
+use crate::utils::misc_types::{
+    DateRange, DayValuesStruct, MonthValuesStruct, MonthYear, UserListResponse, ZoomLevel,
+};
 use chrono::{Datelike, Duration, Months, NaiveDate};
 use diesel::ExpressionMethods;
 use diesel::JoinOnDsl;
@@ -11,6 +13,14 @@ use diesel::prelude::*;
 use image::{ImageBuffer, Rgb};
 use std::collections::HashMap;
 
+pub fn get_next_date((month, year): MonthYear, zoom: ZoomLevel) -> MonthYear {
+    let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+    let max_date = min_date
+        .checked_add_months(Months::new(zoom as u32))
+        .unwrap();
+    (max_date.month(), max_date.year())
+}
+
 pub fn get_month_user_values_list(
     month: u32,
     year: i32,
@@ -18,7 +28,8 @@ pub fn get_month_user_values_list(
     dates_map: &HashMap<String, HashMap<i32, i32>>,
 ) -> MonthValuesStruct {
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
-    let max_date = min_date.checked_add_months(Months::new(1)).unwrap() - Duration::days(1);
+    let (max_month, max_year) = get_next_date((month, year), ZoomLevel::Day);
+    let max_date = NaiveDate::from_ymd_opt(max_year, max_month, 1).unwrap();
     let days = fill_dates_list(Some(min_date), Some(max_date), dates_map);
     let start = format!("{}-{:02}-01", year, month);
     let end = format!(
@@ -40,7 +51,7 @@ pub fn fill_dates_list(
     let max_date = to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap());
     let mut dates: Vec<DayValuesStruct> = Vec::new();
     let mut current_date = min_date;
-    while current_date <= max_date {
+    while current_date < max_date {
         let date_str = current_date.to_string();
         let values = dates_map.get(&date_str).unwrap_or(&HashMap::new()).clone();
         dates.push(DayValuesStruct {
