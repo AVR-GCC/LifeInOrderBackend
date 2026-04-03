@@ -562,9 +562,6 @@ async fn get_user_list(
                     current_month += 1;
                 }
             }
-            let mut month_values =
-                get_month_user_values_list(current_month, current_year, inner_user_id, &dates_map);
-            dates.append(&mut month_values.days);
             let response = UserListResponse { dates, habits };
             match create_period_image(response, total_width, row_height) {
                 Ok(webp_data) => Ok(HttpResponse::Ok()
