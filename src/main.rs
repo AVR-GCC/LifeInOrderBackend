@@ -1,7 +1,7 @@
 mod config;
 use crate::config::Config;
 use actix_web::{App, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web};
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
+use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use diesel::dsl::now;
 use log::debug;
 use std::collections::HashMap;
