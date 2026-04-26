@@ -1,8 +1,13 @@
-use crate::db::schema::day_values::dsl::{date as dv_date, day_values, value_id as dv_value_id};
+use crate::db::schema::day_values::dsl::{
+    date as dv_date, day_values, text as dv_text, value_id as dv_value_id,
+};
 use crate::db::schema::habit_values::dsl::{habit_id as hv_habit_id, habit_values, id as hv_id};
-use crate::db::schema::user_habits::dsl::{id as uh_id, user_habits, user_id as uh_user_id};
+use crate::db::schema::user_habits::dsl::{
+    habit_type as uh_habit_type, id as uh_id, user_habits, user_id as uh_user_id,
+};
 use crate::utils::misc_types::{
-    DateRange, DayValuesStruct, MonthValuesStruct, MonthYear, UserListResponse, ZoomLevel,
+    DateRange, DayValuesStruct, HabitDayValue, MonthValuesStruct, MonthYear, UserListResponse,
+    ZoomLevel,
 };
 use chrono::{Datelike, Duration, Months, NaiveDate};
 use diesel::ExpressionMethods;
@@ -25,7 +30,7 @@ pub fn get_month_user_values_list(
     month: u32,
     year: i32,
     _user_id: i32,
-    dates_map: &HashMap<String, HashMap<i32, i32>>,
+    dates_map: &HashMap<String, HashMap<i32, HabitDayValue>>,
 ) -> MonthValuesStruct {
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let (max_month, max_year) = get_next_date((month, year), ZoomLevel::Day);
@@ -45,7 +50,7 @@ pub fn get_month_user_values_list(
 pub fn fill_dates_list(
     from_date: Option<NaiveDate>,
     to_date: Option<NaiveDate>,
-    dates_map: &HashMap<String, HashMap<i32, i32>>,
+    dates_map: &HashMap<String, HashMap<i32, HabitDayValue>>,
 ) -> Vec<DayValuesStruct> {
     let min_date = from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
     let max_date = to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap());
@@ -68,30 +73,35 @@ pub async fn get_user_values_dates_map(
     user_id: i32,
     from_date: Option<NaiveDate>,
     to_date: Option<NaiveDate>,
-) -> Result<HashMap<String, HashMap<i32, i32>>, actix_web::Error> {
+) -> Result<HashMap<String, HashMap<i32, HabitDayValue>>, actix_web::Error> {
     let value_data = user_habits
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .inner_join(day_values.on(dv_value_id.eq(hv_id)))
         .filter(dv_date.ge(from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap())))
         .filter(dv_date.le(to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap())))
         .filter(uh_user_id.eq(user_id))
-        .select((uh_id, dv_date, dv_value_id))
+        .select((uh_id, uh_habit_type, dv_date, dv_value_id, dv_text))
         .order(dv_date.asc())
-        .load::<(i32, NaiveDate, i32)>(conn)
+        .load::<(i32, String, NaiveDate, i32, Option<String>)>(conn)
         .map_err(|e| {
             println!("Query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
     // Build response
-    let mut dates_map: HashMap<String, HashMap<i32, i32>> = HashMap::new();
+    let mut dates_map: HashMap<String, HashMap<i32, HabitDayValue>> = HashMap::new();
 
-    for (habit_id, date, day_value_id) in value_data {
-        // Dates: date -> habit_id -> day_value_id
+    for (habit_id, habit_type, date, day_value_id, text) in value_data {
+        // Dates: date -> habit_id -> HabitDayValue
         let date_str = date.to_string();
+        let value = if habit_type == "text" {
+            HabitDayValue::Text(text.unwrap_or_default())
+        } else {
+            HabitDayValue::Int(day_value_id)
+        };
         dates_map
             .entry(date_str)
             .or_insert_with(HashMap::new)
-            .insert(habit_id, day_value_id);
+            .insert(habit_id, value);
     }
 
     Ok(dates_map)
@@ -150,18 +160,18 @@ pub fn create_period_image(
             let habit_width = (total_width * habit.habit.weight) / total_weight;
 
             // Get the value for this habit on this date
-            let value_id = date_values.values.get(&habit.habit.id);
+            let day_value = date_values.values.get(&habit.habit.id);
 
             // Find the corresponding habit value and its color
-            let color = if let Some(&val_id) = value_id {
-                habit
+            let color = match day_value {
+                Some(HabitDayValue::Int(val_id)) => habit
                     .values
                     .iter()
-                    .find(|v| v.id == val_id)
+                    .find(|v| v.id == *val_id)
                     .map(|v| &v.color)
-                    .unwrap_or(&None)
-            } else {
-                &None
+                    .unwrap_or(&None),
+                Some(HabitDayValue::Text(_)) => &None,
+                None => &None,
             };
 
             let rgb_color = parse_color(color);

@@ -4,6 +4,13 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum HabitDayValue {
+    Int(i32),
+    Text(String),
+}
+
 pub type MonthYear = (u32, i32);
 
 #[derive(Clone, Copy)]
@@ -59,7 +66,7 @@ pub struct ExtendedUserHabit {
 #[derive(Serialize, Clone, Debug)]
 pub struct DayValuesStruct {
     pub date: String,
-    pub values: HashMap<i32, i32>,
+    pub values: HashMap<i32, HabitDayValue>,
 }
 
 #[derive(Serialize, Clone, Debug)]
