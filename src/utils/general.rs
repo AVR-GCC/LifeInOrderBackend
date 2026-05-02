@@ -154,10 +154,18 @@ pub fn create_period_image(
     // For each date row
     for (row_idx, date_values) in data.dates.iter().enumerate() {
         let mut x_offset = 0;
+        let mut remainder: f64 = 0.0;
 
         // For each habit (sorted by sequence)
         for habit in &data.habits {
-            let habit_width = (total_width * habit.habit.weight) / total_weight;
+            let exact_width =
+                (total_width as f64 * habit.habit.weight as f64) / total_weight as f64;
+            let mut habit_width = exact_width as i32;
+            remainder += exact_width - habit_width as f64;
+            if remainder >= 1.0 {
+                habit_width += 1;
+                remainder -= 1.0;
+            }
 
             // Get the value for this habit on this date
             let day_value = date_values.values.get(&habit.habit.id);
