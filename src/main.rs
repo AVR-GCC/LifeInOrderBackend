@@ -586,6 +586,11 @@ async fn get_user_list(
     }
 }
 
+#[get("/")]
+async fn ping() -> Result<HttpResponse, actix_web::Error> {
+    Ok(HttpResponse::Ok().json("Get your life in order!"))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // logger
@@ -623,6 +628,7 @@ async fn main() -> std::io::Result<()> {
             .service(delete_habit_value)
             .service(get_user_list)
             .service(get_user_config)
+            .service(ping)
         //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?
