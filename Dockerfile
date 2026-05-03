@@ -15,6 +15,7 @@ RUN cargo build --release --bin LifeInOrderBackend
 
 # We do not need the Rust toolchain to run the binary!
 FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y libpq5 ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app/target/release/LifeInOrderBackend /usr/local/bin
 ENTRYPOINT ["/usr/local/bin/LifeInOrderBackend"]
