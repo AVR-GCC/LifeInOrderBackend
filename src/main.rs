@@ -1,7 +1,7 @@
 mod config;
 use crate::config::Config;
 use actix_web::{App, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web};
-use chrono::{Datelike, NaiveDate, NaiveDateTime};
+use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
 use diesel::dsl::now;
 use log::debug;
 use std::collections::HashMap;
@@ -17,8 +17,7 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{
-    DayValue, HabitValue, NewDayValue, NewHabitValue, NewUser, NewUserHabit, User,
-    UserHabit,
+    DayValue, HabitValue, NewDayValue, NewHabitValue, NewUser, NewUserHabit, User, UserHabit,
 };
 use crate::db::schema::day_values::dsl::{
     created_at as dv_created_at, date as dv_date, day_values, habit_id as dv_habit_id,
@@ -586,6 +585,104 @@ async fn get_user_list(
     }
 }
 
+#[get("/users/{path_user_id}/backup")]
+async fn get_user_backup(
+    pool: web::Data<DbPool>,
+    path_user_id: web::Path<i32>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let inner_user_id = path_user_id.into_inner();
+    debug!("Creating backup for user_id: {}", inner_user_id);
+
+    let mut conn = pool.get().map_err(|e| {
+        debug!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+
+    // Fetch user info
+    let user = users
+        .filter(u_id.eq(inner_user_id))
+        .select((u_id, u_name, u_email, u_created_at))
+        .first::<User>(&mut conn)
+        .map_err(|e| {
+            debug!("User query error: {:?}", e);
+            actix_web::error::ErrorNotFound("User not found")
+        })?;
+
+    // Fetch all habits with their values
+    let habits = get_user_extended_habits(&mut conn, inner_user_id).await?;
+
+    // Collect all habit ids
+    let habit_ids: Vec<i32> = habits.iter().map(|h| h.habit.id).collect();
+
+    // Fetch all day_values for all of the user's habits
+    let all_day_values: Vec<DayValue> = day_values
+        .filter(dv_habit_id.eq_any(&habit_ids))
+        .order((dv_date.asc(), dv_habit_id.asc()))
+        .load::<DayValue>(&mut conn)
+        .map_err(|e| {
+            debug!("Day values query error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+
+    // Build the backup JSON
+    let backup = serde_json::json!({
+        "backup_date": Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "created_at": user.created_at.format("%Y-%m-%dT%H:%M:%S").to_string(),
+        },
+        "habits": habits.iter().map(|h| {
+            serde_json::json!({
+                "id": h.habit.id,
+                "name": h.habit.name,
+                "weight": h.habit.weight,
+                "sequence": h.habit.sequence,
+                "habit_type": h.habit.habit_type,
+                "created_at": h.habit.created_at.format("%Y-%m-%dT%H:%M:%S").to_string(),
+                "values": h.values.iter().map(|v| {
+                    serde_json::json!({
+                        "id": v.id,
+                        "label": v.label,
+                        "sequence": v.sequence,
+                        "color": v.color,
+                        "created_at": v.created_at.format("%Y-%m-%dT%H:%M:%S").to_string(),
+                    })
+                }).collect::<Vec<_>>(),
+            })
+        }).collect::<Vec<_>>(),
+        "day_values": all_day_values.iter().map(|dv| {
+            serde_json::json!({
+                "id": dv.id,
+                "habit_id": dv.habit_id,
+                "value_id": dv.value_id,
+                "date": dv.date.format("%Y-%m-%d").to_string(),
+                "text": dv.text,
+                "number": dv.number,
+                "created_at": dv.created_at.format("%Y-%m-%dT%H:%M:%S").to_string(),
+            })
+        }).collect::<Vec<_>>(),
+    });
+
+    let body = serde_json::to_string_pretty(&backup)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    let filename = format!(
+        "life_in_order_backup_user_{}_{}.json",
+        inner_user_id,
+        Utc::now().format("%Y%m%d_%H%M%S")
+    );
+
+    Ok(HttpResponse::Ok()
+        .content_type("application/json")
+        .insert_header((
+            "Content-Disposition",
+            format!("attachment; filename=\"{}\"", filename),
+        ))
+        .body(body))
+}
+
 #[get("/")]
 async fn ping() -> Result<HttpResponse, actix_web::Error> {
     Ok(HttpResponse::Ok().json("Get your life in order!"))
@@ -628,6 +725,7 @@ async fn main() -> std::io::Result<()> {
             .service(delete_habit_value)
             .service(get_user_list)
             .service(get_user_config)
+            .service(get_user_backup)
             .service(ping)
         //.route("/hey", web::get().to(manual_hello))
     })
