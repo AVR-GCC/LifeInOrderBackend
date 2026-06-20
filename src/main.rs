@@ -3,14 +3,11 @@ use crate::config::Config;
 use actix_web::{App, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web};
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
 use diesel::dsl::now;
-use log::debug;
 use std::collections::HashMap;
 use std::str::FromStr;
 use utils::misc_types::SequenceUpdateRequest;
 
-#[macro_use]
-extern crate diesel_migrations;
-use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
@@ -59,9 +56,9 @@ async fn create_user(
     req_body: web::Json<NewUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user = req_body.into_inner();
-    debug!("Creating user: {:?}", new_user);
+    println!("Creating user: {:?}", new_user);
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
     let inserted = diesel::insert_into(users)
@@ -70,7 +67,7 @@ async fn create_user(
         .get_result::<User>(&mut conn)
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    debug!("Inserted user: {:?}", inserted);
+    println!("Inserted user: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -80,13 +77,13 @@ async fn update_user_habit(
     req_body: web::Json<UserHabit>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user_habit = req_body.into_inner();
-    debug!(
+    println!(
         "Updating user_habit for name: {}, weight: {}, habit_type: {}",
         new_user_habit.name, new_user_habit.weight, new_user_habit.habit_type
     );
 
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
     let inserted = diesel::update(user_habits)
@@ -98,11 +95,11 @@ async fn update_user_habit(
         ))
         .get_result::<UserHabit>(&mut conn)
         .map_err(|e| {
-            debug!("Update error: {:?}", e);
+            println!("Update error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
 
-    debug!("Updated user_habit: {:?}", inserted);
+    println!("Updated user_habit: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -118,7 +115,7 @@ async fn delete_user_habit(
     );
 
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
     let result =
@@ -144,7 +141,7 @@ async fn reorder_user_habits(
         let mut connection = pool
             .get()
             .map_err(|e| {
-                debug!("Pool error: {:?}", e);
+                println!("Pool error: {:?}", e);
                 actix_web::error::ErrorInternalServerError(e)
             })
             .expect("Connection to db failed");
@@ -159,7 +156,7 @@ async fn reorder_user_habits(
                 diesel::result::QueryResult::Ok(())
             })
             .map_err(|e| {
-                debug!("Pool error: {:?}", e);
+                println!("Pool error: {:?}", e);
                 actix_web::error::ErrorInternalServerError(e)
             });
     })
@@ -180,24 +177,24 @@ async fn create_user_habit(
     req_body: web::Json<NewUserHabit>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user_habit = req_body.into_inner();
-    debug!(
+    println!(
         "Creating user_habit for user_id: {}, name: {:?}, weight: {}, sequence: {}",
         new_user_habit.user_id, new_user_habit.name, new_user_habit.weight, new_user_habit.sequence
     );
 
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
     let inserted = diesel::insert_into(user_habits)
         .values(&new_user_habit)
         .get_result::<UserHabit>(&mut conn)
         .map_err(|e| {
-            debug!("Insert error: {:?}", e);
+            println!("Insert error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
 
-    debug!("Inserted user_habit: {:?}", inserted);
+    println!("Inserted user_habit: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -207,14 +204,14 @@ async fn update_habit_value(
     req_body: web::Json<HabitValue>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_habit_value = req_body.into_inner();
-    debug!(
+    println!(
         "Updating user_habit for habit_id: {}, color: {}",
         new_habit_value.habit_id,
         new_habit_value.color.clone().unwrap_or("".to_string())
     );
 
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
     let inserted = diesel::update(habit_values)
@@ -225,11 +222,11 @@ async fn update_habit_value(
         ))
         .get_result::<HabitValue>(&mut conn)
         .map_err(|e| {
-            debug!("Update error: {:?}", e);
+            println!("Update error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
 
-    debug!("Updated habit_value: {:?}", inserted);
+    println!("Updated habit_value: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -239,25 +236,25 @@ async fn create_habit_value(
     req_body: web::Json<NewHabitValue>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_habit_value = req_body.into_inner();
-    debug!(
+    println!(
         "Creating user_habit for habit_id: {}, color: {}",
         new_habit_value.habit_id,
         new_habit_value.color.clone().unwrap_or("".to_string())
     );
 
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
     let inserted = diesel::insert_into(habit_values)
         .values(&new_habit_value)
         .get_result::<HabitValue>(&mut conn)
         .map_err(|e| {
-            debug!("Insert error: {:?}", e);
+            println!("Insert error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
 
-    debug!("Inserted habit_value: {:?}", inserted);
+    println!("Inserted habit_value: {:?}", inserted);
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -272,7 +269,7 @@ async fn reorder_habit_values(
         let mut connection = pool
             .get()
             .map_err(|e| {
-                debug!("Pool error: {:?}", e);
+                println!("Pool error: {:?}", e);
                 actix_web::error::ErrorInternalServerError(e)
             })
             .expect("Connection to db failed");
@@ -287,7 +284,7 @@ async fn reorder_habit_values(
                 diesel::result::QueryResult::Ok(())
             })
             .map_err(|e| {
-                debug!("Pool error: {:?}", e);
+                println!("Pool error: {:?}", e);
                 actix_web::error::ErrorInternalServerError(e)
             });
     })
@@ -314,7 +311,7 @@ async fn delete_habit_value(
     );
 
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
     let result =
@@ -398,7 +395,7 @@ async fn get_user_extended_habits(
             NaiveDateTime,
         )>(conn)
         .map_err(|e| {
-            debug!("Query error: {:?}", e);
+            println!("Query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
 
@@ -470,7 +467,7 @@ async fn get_user_config(
     // println!("Fetching user config for user_id: {}", inner_user_id);
 
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
 
@@ -489,7 +486,7 @@ async fn get_user_list(
     // println!("Fetching user list for user_id: {}", inner_user_id);
 
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
 
@@ -591,10 +588,10 @@ async fn get_user_backup(
     path_user_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_user_id = path_user_id.into_inner();
-    debug!("Creating backup for user_id: {}", inner_user_id);
+    println!("Creating backup for user_id: {}", inner_user_id);
 
     let mut conn = pool.get().map_err(|e| {
-        debug!("Pool error: {:?}", e);
+        println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
 
@@ -604,7 +601,7 @@ async fn get_user_backup(
         .select((u_id, u_name, u_email, u_created_at))
         .first::<User>(&mut conn)
         .map_err(|e| {
-            debug!("User query error: {:?}", e);
+            println!("User query error: {:?}", e);
             actix_web::error::ErrorNotFound("User not found")
         })?;
 
@@ -620,7 +617,7 @@ async fn get_user_backup(
         .order((dv_date.asc(), dv_habit_id.asc()))
         .load::<DayValue>(&mut conn)
         .map_err(|e| {
-            debug!("Day values query error: {:?}", e);
+            println!("Day values query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
 
