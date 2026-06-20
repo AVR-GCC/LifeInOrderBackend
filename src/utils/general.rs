@@ -148,7 +148,7 @@ pub fn create_period_image(
     let total_weight: i32 = data.habits.iter().map(|h| h.habit.weight).sum();
 
     if total_weight == 0 {
-        return Err("Total habit weight is zero".into());
+        return Ok(Vec::new());
     }
 
     // For each date row
