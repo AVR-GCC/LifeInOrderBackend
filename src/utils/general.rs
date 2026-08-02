@@ -89,14 +89,9 @@ pub async fn get_user_values_data(
     Ok(value_data)
 }
 
-pub async fn get_user_values_dates_map(
-    conn: &mut PgConnection,
-    user_id: i32,
-    from_date: Option<NaiveDate>,
-    to_date: Option<NaiveDate>,
-) -> Result<HashMap<String, HashMap<i32, HabitDayValue>>, actix_web::Error> {
-    let value_data: Vec<ValuesDataEntry> = get_user_values_data(conn, user_id, from_date, to_date).await?;
-    // Build response
+pub fn values_data_into_map(
+    value_data: Vec<ValuesDataEntry>
+) -> HashMap<String, HashMap<i32, HabitDayValue>> {
     let mut dates_map: HashMap<String, HashMap<i32, HabitDayValue>> = HashMap::new();
 
     for (habit_id, habit_type, date, day_value_id, text) in value_data {
@@ -112,6 +107,19 @@ pub async fn get_user_values_dates_map(
             .or_insert_with(HashMap::new)
             .insert(habit_id, value);
     }
+
+    dates_map
+}
+
+pub async fn get_user_values_dates_map(
+    conn: &mut PgConnection,
+    user_id: i32,
+    from_date: Option<NaiveDate>,
+    to_date: Option<NaiveDate>,
+) -> Result<HashMap<String, HashMap<i32, HabitDayValue>>, actix_web::Error> {
+    let value_data: Vec<ValuesDataEntry> = get_user_values_data(conn, user_id, from_date, to_date).await?;
+    // Build response
+    let dates_map: HashMap<String, HashMap<i32, HabitDayValue>> = values_data_into_map(value_data);
 
     Ok(dates_map)
 }
