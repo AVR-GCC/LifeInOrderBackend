@@ -67,12 +67,12 @@ pub fn fill_dates_list(
     dates
 }
 
-pub async fn get_user_values_dates_map(
+pub async fn get_user_values_data(
     conn: &mut PgConnection,
     user_id: i32,
     from_date: Option<NaiveDate>,
     to_date: Option<NaiveDate>,
-) -> Result<HashMap<String, HashMap<i32, HabitDayValue>>, actix_web::Error> {
+) -> Result<Vec<ValuesDataEntry>, actix_web::Error> {
     let value_data: Vec<ValuesDataEntry> = user_habits
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .inner_join(day_values.on(dv_value_id.eq(hv_id)))
@@ -86,6 +86,16 @@ pub async fn get_user_values_dates_map(
             println!("Query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
+    Ok(value_data)
+}
+
+pub async fn get_user_values_dates_map(
+    conn: &mut PgConnection,
+    user_id: i32,
+    from_date: Option<NaiveDate>,
+    to_date: Option<NaiveDate>,
+) -> Result<HashMap<String, HashMap<i32, HabitDayValue>>, actix_web::Error> {
+    let value_data: Vec<ValuesDataEntry> = get_user_values_data(conn, user_id, from_date, to_date).await?;
     // Build response
     let mut dates_map: HashMap<String, HashMap<i32, HabitDayValue>> = HashMap::new();
 
