@@ -29,7 +29,7 @@ pub fn get_month_user_values_list(
     month: u32,
     year: i32,
     _user_id: i32,
-    dates_map: &HashMap<String, HashMap<i32, HabitDayValue>>,
+    dates_map: &DateValuesMap,
 ) -> MonthValuesStruct {
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let (max_month, max_year) = get_next_date((month, year), ZoomLevel::Day);
@@ -49,7 +49,7 @@ pub fn get_month_user_values_list(
 pub fn fill_dates_list(
     from_date: Option<NaiveDate>,
     to_date: Option<NaiveDate>,
-    dates_map: &HashMap<String, HashMap<i32, HabitDayValue>>,
+    dates_map: &DateValuesMap,
 ) -> Vec<DayValuesStruct> {
     let min_date = from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
     let max_date = to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap());
