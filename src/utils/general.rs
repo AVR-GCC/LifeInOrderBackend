@@ -6,8 +6,7 @@ use crate::db::schema::user_habits::dsl::{
     habit_type as uh_habit_type, id as uh_id, user_habits, user_id as uh_user_id,
 };
 use crate::utils::misc_types::{
-    DateRange, DayValuesStruct, HabitDayValue, MonthValuesStruct, MonthYear, UserListResponse,
-    ZoomLevel,
+    DateRange, DayValuesStruct, HabitDayValue, MonthValuesStruct, MonthYear, UserListResponse, ValuesDataEntry, ZoomLevel
 };
 use chrono::{Datelike, Duration, Months, NaiveDate};
 use diesel::ExpressionMethods;
@@ -74,7 +73,7 @@ pub async fn get_user_values_dates_map(
     from_date: Option<NaiveDate>,
     to_date: Option<NaiveDate>,
 ) -> Result<HashMap<String, HashMap<i32, HabitDayValue>>, actix_web::Error> {
-    let value_data = user_habits
+    let value_data: Vec<ValuesDataEntry> = user_habits
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .inner_join(day_values.on(dv_value_id.eq(hv_id)))
         .filter(dv_date.ge(from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap())))
@@ -82,7 +81,7 @@ pub async fn get_user_values_dates_map(
         .filter(uh_user_id.eq(user_id))
         .select((uh_id, uh_habit_type, dv_date, dv_value_id, dv_text))
         .order(dv_date.asc())
-        .load::<(i32, String, NaiveDate, i32, Option<String>)>(conn)
+        .load::<ValuesDataEntry>(conn)
         .map_err(|e| {
             println!("Query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)

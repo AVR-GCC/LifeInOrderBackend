@@ -3,6 +3,7 @@ use crate::db::models::{HabitValue, UserHabit};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+use chrono::{NaiveDate};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
@@ -49,6 +50,8 @@ impl FromStr for ZoomLevel {
         }
     }
 }
+
+pub type ValuesDataEntry = (i32, String, NaiveDate, i32, Option<String>);
 
 #[derive(Serialize, Clone, Debug)]
 pub struct DateRange {
