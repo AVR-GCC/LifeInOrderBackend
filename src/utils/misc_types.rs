@@ -53,6 +53,8 @@ impl FromStr for ZoomLevel {
 
 pub type ValuesDataEntry = (i32, String, NaiveDate, i32, Option<String>);
 
+pub type DateValuesMap = HashMap<String, HashMap<i32, HabitDayValue>>;
+
 #[derive(Serialize, Clone, Debug)]
 pub struct DateRange {
     pub start: String,

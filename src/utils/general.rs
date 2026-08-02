@@ -6,7 +6,7 @@ use crate::db::schema::user_habits::dsl::{
     habit_type as uh_habit_type, id as uh_id, user_habits, user_id as uh_user_id,
 };
 use crate::utils::misc_types::{
-    DateRange, DayValuesStruct, HabitDayValue, MonthValuesStruct, MonthYear, UserListResponse, ValuesDataEntry, ZoomLevel
+    DateRange, DateValuesMap, DayValuesStruct, HabitDayValue, MonthValuesStruct, MonthYear, UserListResponse, ValuesDataEntry, ZoomLevel
 };
 use chrono::{Datelike, Duration, Months, NaiveDate};
 use diesel::ExpressionMethods;
@@ -91,8 +91,8 @@ pub async fn get_user_values_data(
 
 pub fn values_data_into_map(
     value_data: Vec<ValuesDataEntry>
-) -> HashMap<String, HashMap<i32, HabitDayValue>> {
-    let mut dates_map: HashMap<String, HashMap<i32, HabitDayValue>> = HashMap::new();
+) -> DateValuesMap {
+    let mut dates_map: DateValuesMap = HashMap::new();
 
     for (habit_id, habit_type, date, day_value_id, text) in value_data {
         // Dates: date -> habit_id -> HabitDayValue
@@ -116,10 +116,10 @@ pub async fn get_user_values_dates_map(
     user_id: i32,
     from_date: Option<NaiveDate>,
     to_date: Option<NaiveDate>,
-) -> Result<HashMap<String, HashMap<i32, HabitDayValue>>, actix_web::Error> {
+) -> Result<DateValuesMap, actix_web::Error> {
     let value_data: Vec<ValuesDataEntry> = get_user_values_data(conn, user_id, from_date, to_date).await?;
     // Build response
-    let dates_map: HashMap<String, HashMap<i32, HabitDayValue>> = values_data_into_map(value_data);
+    let dates_map: DateValuesMap = values_data_into_map(value_data);
 
     Ok(dates_map)
 }
