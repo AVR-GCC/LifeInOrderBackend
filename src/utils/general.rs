@@ -126,8 +126,6 @@ pub async fn get_cache_values_and_missing_ranges(
         let range = NaiveDateRange { start, end };
         ranges.push(range);
     }
-    dbg!(data.clone().into_keys());
-    dbg!(&ranges);
     let result = GetCacheValuesAndMissingRangesResult { data, ranges };
     Ok(result)
 }
