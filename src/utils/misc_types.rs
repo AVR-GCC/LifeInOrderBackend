@@ -1,10 +1,12 @@
 use crate::HashMap;
 use crate::db::models::{HabitValue, UserHabit};
+use chrono::NaiveDate;
 use core::fmt;
+use diesel::pg::PgConnection;
+use diesel::r2d2::{ConnectionManager, Pool};
+use redis::{FromRedisValue, ParsingError, RedisWrite, ToRedisArgs, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use chrono::{NaiveDate};
-use redis::{FromRedisValue, ToRedisArgs, ParsingError, Value, RedisWrite};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
@@ -17,7 +19,7 @@ impl ToRedisArgs for HabitDayValue {
     fn write_redis_args<W: ?Sized + RedisWrite>(&self, out: &mut W) {
         let str = match self {
             HabitDayValue::Int(n) => format!("i:{n}"),
-            HabitDayValue::Text(s) => format!("t:{s}")
+            HabitDayValue::Text(s) => format!("t:{s}"),
         };
         str.write_redis_args(out);
     }
@@ -28,9 +30,9 @@ impl FromRedisValue for HabitDayValue {
         let str = String::from_redis_value(v)?;
 
         if let Some(rest) = str.strip_prefix("i:") {
-            let n = rest.parse::<i32>().map_err(|_| {
-                ParsingError::from("Invalid int payload")
-            })?;
+            let n = rest
+                .parse::<i32>()
+                .map_err(|_| ParsingError::from("Invalid int payload"))?;
             Ok(HabitDayValue::Int(n))
         } else if let Some(rest) = str.strip_prefix("t:") {
             Ok(HabitDayValue::Text(rest.to_string()))
@@ -89,6 +91,18 @@ pub struct DateRange {
     pub end: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NaiveDateRange {
+    pub start: NaiveDate,
+    pub end: NaiveDate,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct GetCacheValuesAndMissingRangesResult {
+    pub ranges: Vec<NaiveDateRange>,
+    pub data: DateValuesMap,
+}
+
 #[derive(Serialize, Debug)]
 pub struct ExtendedUserHabit {
     pub habit: UserHabit,
@@ -117,4 +131,10 @@ pub struct UserListResponse {
 #[derive(Deserialize, Serialize)]
 pub struct SequenceUpdateRequest {
     pub ordered_ids: Vec<i32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AppState {
+    pub db_pool: Pool<ConnectionManager<PgConnection>>,
+    pub redis_client: redis::Client,
 }

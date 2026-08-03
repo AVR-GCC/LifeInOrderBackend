@@ -34,12 +34,10 @@ use crate::db::schema::users::dsl::{
 use crate::utils::general::{
     create_period_image, get_month_user_values_list, get_next_date, get_user_values_dates_map,
 };
-use crate::utils::misc_types::{ExtendedUserHabit, UserListResponse, ZoomLevel};
+use crate::utils::misc_types::{AppState, ExtendedUserHabit, UserListResponse, ZoomLevel};
 
 mod db;
 mod utils;
-
-type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 //use tokio::time::{sleep, Duration};
 
@@ -52,12 +50,12 @@ type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 #[post("/users")]
 async fn create_user(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     req_body: web::Json<NewUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user = req_body.into_inner();
     println!("Creating user: {:?}", new_user);
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
@@ -73,7 +71,7 @@ async fn create_user(
 
 #[put("/user_habits")]
 async fn update_user_habit(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     req_body: web::Json<UserHabit>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user_habit = req_body.into_inner();
@@ -82,7 +80,7 @@ async fn update_user_habit(
         new_user_habit.name, new_user_habit.weight, new_user_habit.habit_type
     );
 
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
@@ -105,7 +103,7 @@ async fn update_user_habit(
 
 #[delete("/user_habits/{id}")]
 async fn delete_user_habit(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     path_user_habit_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_user_habit_id = path_user_habit_id.into_inner();
@@ -114,7 +112,7 @@ async fn delete_user_habit(
         "not yet", inner_user_habit_id
     );
 
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
@@ -132,13 +130,14 @@ async fn delete_user_habit(
 
 #[post("/user_habits/reorder")]
 async fn reorder_user_habits(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     req: web::Json<SequenceUpdateRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let user_habit_ids = req.into_inner().ordered_ids.clone();
 
     let result: Result<_, actix_web::Error> = Ok(web::block(move || {
-        let mut connection = pool
+        let mut connection = state
+            .db_pool
             .get()
             .map_err(|e| {
                 println!("Pool error: {:?}", e);
@@ -173,7 +172,7 @@ async fn reorder_user_habits(
 
 #[post("/user_habits")]
 async fn create_user_habit(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     req_body: web::Json<NewUserHabit>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user_habit = req_body.into_inner();
@@ -182,7 +181,7 @@ async fn create_user_habit(
         new_user_habit.user_id, new_user_habit.name, new_user_habit.weight, new_user_habit.sequence
     );
 
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
@@ -200,7 +199,7 @@ async fn create_user_habit(
 
 #[put("/habit_values")]
 async fn update_habit_value(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     req_body: web::Json<HabitValue>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_habit_value = req_body.into_inner();
@@ -210,7 +209,7 @@ async fn update_habit_value(
         new_habit_value.color.clone().unwrap_or("".to_string())
     );
 
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
@@ -232,7 +231,7 @@ async fn update_habit_value(
 
 #[post("/habit_values")]
 async fn create_habit_value(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     req_body: web::Json<NewHabitValue>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_habit_value = req_body.into_inner();
@@ -242,7 +241,7 @@ async fn create_habit_value(
         new_habit_value.color.clone().unwrap_or("".to_string())
     );
 
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
@@ -260,13 +259,14 @@ async fn create_habit_value(
 
 #[post("/habit_values/reorder")]
 async fn reorder_habit_values(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     req: web::Json<SequenceUpdateRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let habit_value_ids = req.into_inner().ordered_ids.clone();
 
     let result: Result<_, actix_web::Error> = Ok(web::block(move || {
-        let mut connection = pool
+        let mut connection = state
+            .db_pool
             .get()
             .map_err(|e| {
                 println!("Pool error: {:?}", e);
@@ -301,7 +301,7 @@ async fn reorder_habit_values(
 
 #[delete("/habit_values/{id}")]
 async fn delete_habit_value(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     path_habit_value_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_habit_value_id = path_habit_value_id.into_inner();
@@ -310,7 +310,7 @@ async fn delete_habit_value(
         "not yet", inner_habit_value_id
     );
 
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
@@ -328,7 +328,7 @@ async fn delete_habit_value(
 
 #[post("/day_values")]
 async fn create_day_value(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     req_body: web::Json<NewDayValue>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_day_value = req_body.into_inner();
@@ -340,7 +340,8 @@ async fn create_day_value(
         new_day_value.text.clone().unwrap_or("".to_string()),
         new_day_value.number.clone().unwrap_or(0)
     );
-    let mut conn = pool
+    let mut conn = state
+        .db_pool
         .get()
         .map_err(actix_web::error::ErrorInternalServerError)?;
     let inserted = diesel::insert_into(day_values)
@@ -460,13 +461,13 @@ async fn get_user_extended_habits(
 
 #[get("/users/{path_user_id}/config")]
 async fn get_user_config(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     path_user_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_user_id = path_user_id.into_inner();
     // println!("Fetching user config for user_id: {}", inner_user_id);
 
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
@@ -478,17 +479,22 @@ async fn get_user_config(
 
 #[get("/users/{path_user_id}/list")]
 async fn get_user_list(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     path_user_id: web::Path<i32>,
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_user_id = path_user_id.into_inner();
     // println!("Fetching user list for user_id: {}", inner_user_id);
 
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
+
+    let mut cache = state
+        .redis_client
+        .get_connection()
+        .expect("Failed to get cache connection");
 
     if let (Some(date), Some(zoom), Some(count)) =
         (query.get("date"), query.get("zoom"), query.get("count"))
@@ -505,12 +511,17 @@ async fn get_user_list(
         }
         let end_date = NaiveDate::from_ymd_opt(to_year, to_month, 1).unwrap();
 
-        dbg!(date);
-        dbg!(start_date);
-        dbg!(end_date);
-        let dates_map =
-            get_user_values_dates_map(&mut conn, inner_user_id, Some(start_date), Some(end_date))
-                .await?;
+        // dbg!(date);
+        // dbg!(start_date);
+        // dbg!(end_date);
+        let dates_map = get_user_values_dates_map(
+            &mut cache,
+            &mut conn,
+            inner_user_id,
+            Some(start_date),
+            Some(end_date),
+        )
+        .await?;
 
         let habits = get_user_extended_habits(&mut conn, inner_user_id)
             .await
@@ -584,13 +595,13 @@ async fn get_user_list(
 
 #[get("/users/{path_user_id}/backup")]
 async fn get_user_backup(
-    pool: web::Data<DbPool>,
+    state: web::Data<AppState>,
     path_user_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let inner_user_id = path_user_id.into_inner();
     println!("Creating backup for user_id: {}", inner_user_id);
 
-    let mut conn = pool.get().map_err(|e| {
+    let mut conn = state.db_pool.get().map_err(|e| {
         println!("Pool error: {:?}", e);
         actix_web::error::ErrorInternalServerError(e)
     })?;
@@ -705,10 +716,18 @@ async fn main() -> std::io::Result<()> {
     conn.run_pending_migrations(MIGRATIONS)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
+    // cache
+    let client = redis::Client::open(c.cache_url).expect("Failed to open cache client");
+
+    let app_state = AppState {
+        db_pool: pool.clone(),
+        redis_client: client,
+    };
+
     // run
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(app_state.clone()))
             .wrap(Logger::default())
             .service(create_user)
             .service(create_user_habit)

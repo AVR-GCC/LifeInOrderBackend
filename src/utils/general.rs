@@ -6,7 +6,8 @@ use crate::db::schema::user_habits::dsl::{
     habit_type as uh_habit_type, id as uh_id, user_habits, user_id as uh_user_id,
 };
 use crate::utils::misc_types::{
-    DateRange, DateValuesMap, DayValuesStruct, HabitDayValue, MonthValuesStruct, MonthYear, UserListResponse, ValuesDataEntry, ZoomLevel
+    DateRange, DateValuesMap, DayValuesStruct, GetCacheValuesAndMissingRangesResult, HabitDayValue,
+    MonthValuesStruct, MonthYear, NaiveDateRange, UserListResponse, ValuesDataEntry, ZoomLevel,
 };
 use chrono::{Datelike, Duration, Months, NaiveDate};
 use diesel::ExpressionMethods;
@@ -15,6 +16,7 @@ use diesel::QueryDsl;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use image::{ImageBuffer, Rgb};
+use redis::Commands;
 use std::collections::HashMap;
 
 pub fn get_next_date((month, year): MonthYear, zoom: ZoomLevel) -> MonthYear {
@@ -67,17 +69,80 @@ pub fn fill_dates_list(
     dates
 }
 
+pub fn get_cache_key(user_id: i32, year: i32, month: u32, zoom: ZoomLevel) -> String {
+    format!("{user_id}-{zoom}-{year}-{month}")
+}
+
+pub async fn get_day_level_cache_data(
+    cache: &mut redis::Connection,
+    user_id: i32,
+    year: i32,
+    month: u32,
+) -> Option<DateValuesMap> {
+    let key = get_cache_key(user_id, year, month, ZoomLevel::Day);
+    let value: Option<String> = cache.get(key).unwrap();
+    value.and_then(|v| serde_json::from_str(&v).ok())
+}
+
+pub async fn get_cache_values_and_missing_ranges(
+    cache: &mut redis::Connection,
+    user_id: i32,
+    from_date: NaiveDate,
+    to_date: NaiveDate,
+) -> Result<GetCacheValuesAndMissingRangesResult, actix_web::Error> {
+    let mut data: DateValuesMap = HashMap::new();
+    let mut ranges: Vec<NaiveDateRange> = Vec::new();
+    let to_month = to_date.month();
+    let to_year = to_date.year();
+    let mut current_month = from_date.month();
+    let mut current_year = from_date.year();
+    let mut range_start: Option<NaiveDate> =
+        NaiveDate::from_ymd_opt(current_year, current_month, 1);
+    while current_month < to_month || current_year < to_year {
+        let value_opt: Option<DateValuesMap> =
+            get_day_level_cache_data(cache, user_id, current_year, current_month).await;
+        if let Some(cache_value) = value_opt {
+            data.extend(cache_value);
+            if let Some(start) = range_start {
+                let month = start.month();
+                let year = start.year();
+                if current_year != year || current_month != month {
+                    let end = NaiveDate::from_ymd_opt(current_year, current_month, 1).unwrap();
+                    let range = NaiveDateRange { start, end };
+                    ranges.push(range);
+                }
+                range_start = None;
+            }
+        } else {
+            if matches!(range_start, None) {
+                range_start = NaiveDate::from_ymd_opt(current_year, current_month, 1);
+            }
+        }
+        (current_month, current_year) =
+            get_next_date((current_month, current_year), ZoomLevel::Day);
+    }
+    if let Some(start) = range_start {
+        let end = NaiveDate::from_ymd_opt(current_year, current_month, 1).unwrap();
+        let range = NaiveDateRange { start, end };
+        ranges.push(range);
+    }
+    dbg!(data.clone().into_keys());
+    dbg!(&ranges);
+    let result = GetCacheValuesAndMissingRangesResult { data, ranges };
+    Ok(result)
+}
+
 pub async fn get_user_values_data(
     conn: &mut PgConnection,
     user_id: i32,
-    from_date: Option<NaiveDate>,
-    to_date: Option<NaiveDate>,
+    from_date: NaiveDate,
+    to_date: NaiveDate,
 ) -> Result<Vec<ValuesDataEntry>, actix_web::Error> {
     let value_data: Vec<ValuesDataEntry> = user_habits
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .inner_join(day_values.on(dv_value_id.eq(hv_id)))
-        .filter(dv_date.ge(from_date.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap())))
-        .filter(dv_date.le(to_date.unwrap_or(NaiveDate::from_ymd_opt(2030, 12, 31).unwrap())))
+        .filter(dv_date.ge(from_date))
+        .filter(dv_date.lt(to_date))
         .filter(uh_user_id.eq(user_id))
         .select((uh_id, uh_habit_type, dv_date, dv_value_id, dv_text))
         .order(dv_date.asc())
@@ -90,36 +155,60 @@ pub async fn get_user_values_data(
 }
 
 pub fn values_data_into_map(
-    value_data: Vec<ValuesDataEntry>
-) -> DateValuesMap {
-    let mut dates_map: DateValuesMap = HashMap::new();
+    user_id: i32,
+    value_data: Vec<ValuesDataEntry>,
+) -> HashMap<String, DateValuesMap> {
+    let mut dates_maps_map: HashMap<String, DateValuesMap> = HashMap::new();
 
     for (habit_id, habit_type, date, day_value_id, text) in value_data {
         // Dates: date -> habit_id -> HabitDayValue
+        let month = date.month();
+        let year = date.year();
         let date_str = date.to_string();
+        let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
         let value = if habit_type == "text" {
             HabitDayValue::Text(text.unwrap_or_default())
         } else {
             HabitDayValue::Int(day_value_id)
         };
-        dates_map
+        dates_maps_map
+            .entry(cache_key)
+            .or_insert_with(&HashMap::new)
             .entry(date_str)
             .or_insert_with(HashMap::new)
             .insert(habit_id, value);
     }
 
-    dates_map
+    dates_maps_map
 }
 
 pub async fn get_user_values_dates_map(
+    cache: &mut redis::Connection,
     conn: &mut PgConnection,
     user_id: i32,
-    from_date: Option<NaiveDate>,
-    to_date: Option<NaiveDate>,
+    from_date_opt: Option<NaiveDate>,
+    to_date_opt: Option<NaiveDate>,
 ) -> Result<DateValuesMap, actix_web::Error> {
-    let value_data: Vec<ValuesDataEntry> = get_user_values_data(conn, user_id, from_date, to_date).await?;
-    // Build response
-    let dates_map: DateValuesMap = values_data_into_map(value_data);
+    let from_date = from_date_opt.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
+    let to_date = to_date_opt.unwrap_or(NaiveDate::from_ymd_opt(2030, 1, 1).unwrap());
+    let res = get_cache_values_and_missing_ranges(cache, user_id, from_date, to_date).await?;
+    // dbg!(&res.ranges);
+    let mut dates_map: DateValuesMap = res.data;
+    for range in &res.ranges {
+        let value_data: Vec<ValuesDataEntry> =
+            get_user_values_data(conn, user_id, range.start, range.end).await?;
+        // Build response
+        let dates_map_map: HashMap<String, DateValuesMap> =
+            values_data_into_map(user_id, value_data);
+        for (key, map) in dates_map_map {
+            let json = serde_json::to_string(&map)
+                .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+            let _: () = cache
+                .set(key, json)
+                .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+            dates_map.extend(map);
+        }
+    }
 
     Ok(dates_map)
 }

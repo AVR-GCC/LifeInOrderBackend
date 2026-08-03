@@ -7,6 +7,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub database_url: String,
+    pub cache_url: String,
     pub host: String,
     pub port: i32,
 }
@@ -28,10 +29,12 @@ impl Config {
         let database_url = env
             .get("database_url")
             .context("Error: Database url not found")?;
+        let cache_url = env.get("cache_url").context("Error: Cache url not found")?;
         Ok(Config {
             host,
             port,
             database_url,
+            cache_url,
         })
     }
 }
