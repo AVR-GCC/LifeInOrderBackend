@@ -327,14 +327,13 @@ async fn delete_habit_value(
     }
 }
 
-#[post("/day_values/{path_user_id}")]
+#[post("/day_values")]
 async fn create_day_value(
     state: web::Data<AppState>,
     req_body: web::Json<NewDayValue>,
-    path_user_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_day_value = req_body.into_inner();
-    let inner_user_id = path_user_id.into_inner();
+    let user_id = 1;
     println!(
         "Creating day_value for value_id: {}, habit_id: {}, date: {}, text: {}, number: {}, for user: {}",
         new_day_value.value_id,
@@ -342,7 +341,7 @@ async fn create_day_value(
         new_day_value.date,
         new_day_value.text.clone().unwrap_or("".to_string()),
         new_day_value.number.clone().unwrap_or(0),
-        inner_user_id
+        user_id
     );
     let mut conn = state
         .db_pool
@@ -364,7 +363,7 @@ async fn create_day_value(
 
     let year = new_day_value.date.year();
     let month = new_day_value.date.month();
-    let cache_key = get_cache_key(inner_user_id, year, month, ZoomLevel::Day);
+    let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
     let mut cache = state
         .redis_client
         .get_connection()
