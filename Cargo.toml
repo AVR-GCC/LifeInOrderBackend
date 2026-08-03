@@ -21,4 +21,4 @@ diesel = { version = "2.2.7", features = ["postgres", "chrono", "r2d2"] }
 diesel_migrations = "2.2.0"
 chrono = { version = "0.4.40", features = ["serde"] }
 image = { version = "0.25", features = ["webp"] }
-redis = "1.5.0"
+redis = { version = "1.5.0", features = ["tokio-comp", "tls-rustls", "tokio-rustls-comp"] }
