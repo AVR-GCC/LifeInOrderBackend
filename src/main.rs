@@ -698,6 +698,11 @@ async fn ping() -> Result<HttpResponse, actix_web::Error> {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // crypto
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     // logger
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
