@@ -32,9 +32,10 @@ use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, name as u_name, users,
 };
 use crate::utils::general::{
-    create_period_image, get_month_user_values_list, get_next_date, get_user_values_dates_map,
+    create_period_image, get_cache_key, get_month_user_values_list, get_next_date, get_user_values_dates_map
 };
 use crate::utils::misc_types::{AppState, ExtendedUserHabit, UserListResponse, ZoomLevel};
+use redis::Commands;
 
 mod db;
 mod utils;
@@ -326,24 +327,28 @@ async fn delete_habit_value(
     }
 }
 
-#[post("/day_values")]
+#[post("/day_values/{path_user_id}")]
 async fn create_day_value(
     state: web::Data<AppState>,
     req_body: web::Json<NewDayValue>,
+    path_user_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_day_value = req_body.into_inner();
+    let inner_user_id = path_user_id.into_inner();
     println!(
-        "Creating day_value for value_id: {}, habit_id: {}, date: {}, text: {}, number: {}",
+        "Creating day_value for value_id: {}, habit_id: {}, date: {}, text: {}, number: {}, for user: {}",
         new_day_value.value_id,
         new_day_value.habit_id,
         new_day_value.date,
         new_day_value.text.clone().unwrap_or("".to_string()),
-        new_day_value.number.clone().unwrap_or(0)
+        new_day_value.number.clone().unwrap_or(0),
+        inner_user_id
     );
     let mut conn = state
         .db_pool
         .get()
         .map_err(actix_web::error::ErrorInternalServerError)?;
+
     let inserted = diesel::insert_into(day_values)
         .values(&new_day_value.clone())
         .on_conflict((dv_date, dv_habit_id))
@@ -356,6 +361,15 @@ async fn create_day_value(
         ))
         .get_result::<DayValue>(&mut conn)
         .map_err(actix_web::error::ErrorInternalServerError)?;
+
+    let year = new_day_value.date.year();
+    let month = new_day_value.date.month();
+    let cache_key = get_cache_key(inner_user_id, year, month, ZoomLevel::Day);
+    let mut cache = state
+        .redis_client
+        .get_connection()
+        .expect("Failed to get cache connection");
+    let _ = cache.del::<String, usize>(cache_key);
 
     Ok(HttpResponse::Ok().json(inserted))
 }
