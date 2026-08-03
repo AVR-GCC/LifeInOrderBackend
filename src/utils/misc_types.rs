@@ -4,12 +4,40 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use chrono::{NaiveDate};
+use redis::{FromRedisValue, ToRedisArgs, ParsingError, Value, RedisWrite};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum HabitDayValue {
     Int(i32),
     Text(String),
+}
+
+impl ToRedisArgs for HabitDayValue {
+    fn write_redis_args<W: ?Sized + RedisWrite>(&self, out: &mut W) {
+        let str = match self {
+            HabitDayValue::Int(n) => format!("i:{n}"),
+            HabitDayValue::Text(s) => format!("t:{s}")
+        };
+        str.write_redis_args(out);
+    }
+}
+
+impl FromRedisValue for HabitDayValue {
+    fn from_redis_value(v: Value) -> Result<Self, ParsingError> {
+        let str = String::from_redis_value(v)?;
+
+        if let Some(rest) = str.strip_prefix("i:") {
+            let n = rest.parse::<i32>().map_err(|_| {
+                ParsingError::from("Invalid int payload")
+            })?;
+            Ok(HabitDayValue::Int(n))
+        } else if let Some(rest) = str.strip_prefix("t:") {
+            Ok(HabitDayValue::Text(rest.to_string()))
+        } else {
+            Err(ParsingError::from("Missing type prefix 'i:' or 't:'"))
+        }
+    }
 }
 
 pub type MonthYear = (u32, i32);
