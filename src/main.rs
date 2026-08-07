@@ -1,5 +1,6 @@
 mod config;
 use crate::config::Config;
+use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
 use actix_web::{App, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web};
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
 use diesel::dsl::now;
@@ -14,7 +15,7 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{
-    DayValue, HabitValue, NewDayValue, NewHabitValue, NewUser, NewUserHabit, User, UserHabit,
+    DayValue, HabitValue, NewDayValue, NewHabitValue, NewUser, User, Habit, NewHabit
 };
 use crate::db::schema::day_values::dsl::{
     created_at as dv_created_at, date as dv_date, day_values, habit_id as dv_habit_id,
@@ -57,123 +58,56 @@ async fn create_user_route(
     req_body: web::Json<NewUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user = req_body.into_inner();
-    let mut store = get_storage(state).expect("Failed to init storage");
+    let store = get_storage(state).expect("Failed to init storage");
     let inserted = create_user(store, new_user).expect("Failed to create user");
     Ok(HttpResponse::Ok().json(inserted))
 }
 
-#[put("/user_habits")]
-async fn update_user_habit(
+#[post("/habits")]
+async fn create_habit_route(
     state: web::Data<AppState>,
-    req_body: web::Json<UserHabit>,
+    req_body: web::Json<NewHabit>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let new_user_habit = req_body.into_inner();
-    println!(
-        "Updating user_habit for name: {}, weight: {}, habit_type: {}",
-        new_user_habit.name, new_user_habit.weight, new_user_habit.habit_type
-    );
-
-    let mut store = get_storage(state).expect("Failed to init storage");
-    let inserted = diesel::update(user_habits)
-        .filter(uh_id.eq(new_user_habit.id))
-        .set((
-            uh_name.eq(new_user_habit.name),
-            uh_weight.eq(new_user_habit.weight),
-            uh_habit_type.eq(new_user_habit.habit_type),
-        ))
-        .get_result::<UserHabit>(&mut store.db)
-        .map_err(|e| {
-            println!("Update error: {:?}", e);
-            actix_web::error::ErrorInternalServerError(e)
-        })?;
-
-    println!("Updated user_habit: {:?}", inserted);
+    let new_habit = req_body.into_inner();
+    let store = get_storage(state).expect("Failed to init storage");
+    let inserted = create_habit(store, new_habit).expect("Failed to create habit");
     Ok(HttpResponse::Ok().json(inserted))
 }
 
-#[delete("/user_habits/{id}")]
-async fn delete_user_habit(
+#[put("/habits")]
+async fn update_habit_route(
     state: web::Data<AppState>,
-    path_user_habit_id: web::Path<i32>,
+    req_body: web::Json<Habit>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let inner_user_habit_id = path_user_habit_id.into_inner();
-    println!(
-        "Deleting user_habit for user_id: {}, id: {}",
-        "not yet", inner_user_habit_id
-    );
-
-    let mut store = get_storage(state).expect("Failed to init storage");
-
-    let result =
-        diesel::delete(user_habits.filter(uh_id.eq(inner_user_habit_id))).execute(&mut store.db);
-    match result {
-        Ok(0) => Ok(HttpResponse::NotFound().json("User not found")),
-        Ok(_) => Ok(HttpResponse::Ok().json("User deleted")),
-        Err(err) => {
-            eprintln!("Error deleting user: {:?}", err);
-            Ok(HttpResponse::InternalServerError().json("Internal error"))
-        }
-    }
+    let new_habit = req_body.into_inner();
+    let store = get_storage(state).expect("Failed to init storage");
+    let inserted = update_habit(store, new_habit).expect("Failed to update habit");
+    Ok(HttpResponse::Ok().json(inserted))
 }
 
-#[post("/user_habits/reorder")]
-async fn reorder_user_habits(
+#[delete("/habits/{id}")]
+async fn delete_habit_route(
+    state: web::Data<AppState>,
+    path_habit_id: web::Path<i32>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let habit_id = path_habit_id.into_inner();
+    let store = get_storage(state).expect("Failed to init storage");
+    let result = delete_habit(store, habit_id).expect("Failed to delete habit");
+    if result == 0 {
+        return Ok(HttpResponse::NotFound().json("Habit not found"))
+    }
+    Ok(HttpResponse::Ok().json("Habit deleted"))
+}
+
+#[post("/habits/reorder")]
+async fn reorder_habits_route(
     state: web::Data<AppState>,
     req: web::Json<SequenceUpdateRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let user_habit_ids = req.into_inner().ordered_ids.clone();
-
-    let result: Result<_, actix_web::Error> = Ok(web::block(move || {
-        let mut store = get_storage(state).expect("Failed to init storage");
-
-        let _ = store.db
-            .transaction(|db| {
-                for (index, user_habit_id) in user_habit_ids.iter().enumerate() {
-                    diesel::update(user_habits.filter(uh_id.eq(user_habit_id)))
-                        .set(uh_sequence.eq(index as i32 + 1))
-                        .execute(db)?;
-                }
-                diesel::result::QueryResult::Ok(())
-            })
-            .map_err(|e| {
-                println!("Pool error: {:?}", e);
-                actix_web::error::ErrorInternalServerError(e)
-            });
-    })
-    .await);
-
-    match result {
-        Ok(_) => Ok(HttpResponse::Ok().json("Sequence updated")),
-        Err(e) => {
-            eprintln!("Error updating sequence: {:?}", e);
-            Ok(HttpResponse::InternalServerError().json("Failed to update sequence"))
-        }
-    }
-}
-
-#[post("/user_habits")]
-async fn create_user_habit(
-    state: web::Data<AppState>,
-    req_body: web::Json<NewUserHabit>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let new_user_habit = req_body.into_inner();
-    println!(
-        "Creating user_habit for user_id: {}, name: {:?}, weight: {}, sequence: {}",
-        new_user_habit.user_id, new_user_habit.name, new_user_habit.weight, new_user_habit.sequence
-    );
-
-    let mut store = get_storage(state).expect("Failed to init storage");
-
-    let inserted = diesel::insert_into(user_habits)
-        .values(&new_user_habit)
-        .get_result::<UserHabit>(&mut store.db)
-        .map_err(|e| {
-            println!("Insert error: {:?}", e);
-            actix_web::error::ErrorInternalServerError(e)
-        })?;
-
-    println!("Inserted user_habit: {:?}", inserted);
-    Ok(HttpResponse::Ok().json(inserted))
+    let habit_ids = req.into_inner().ordered_ids.clone();
+    let store = get_storage(state).expect("Failed to init storage");
+    let _result = reorder_habits(store, habit_ids).await.expect("Failed to reorder habits");
+    Ok(HttpResponse::Ok().json("Sequence updated"))
 }
 
 #[put("/habit_values")]
@@ -392,7 +326,7 @@ async fn get_user_extended_habits(
     {
         // Habits: habit_id -> details with values
         let habit_entry = habits_map.entry(habit_id).or_insert(ExtendedUserHabit {
-            habit: UserHabit {
+            habit: Habit {
                 id: habit_id,
                 name: habit_name,
                 weight: habit_weight,
@@ -695,15 +629,15 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(app_state.clone()))
             .wrap(Logger::default())
             .service(create_user_route)
-            .service(create_user_habit)
+            .service(create_habit_route)
+            .service(update_habit_route)
+            .service(delete_habit_route)
+            .service(reorder_habits_route)
             .service(create_habit_value)
-            .service(create_day_value)
-            .service(delete_user_habit)
-            .service(reorder_user_habits)
-            .service(reorder_habit_values)
             .service(update_habit_value)
-            .service(update_user_habit)
             .service(delete_habit_value)
+            .service(reorder_habit_values)
+            .service(create_day_value)
             .service(get_user_list)
             .service(get_user_config)
             .service(get_user_backup)

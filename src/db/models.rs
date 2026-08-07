@@ -64,7 +64,7 @@ impl ToSql<Text, Pg> for HabitType {
 }
 
 #[derive(Queryable, Deserialize, Serialize, Debug)]
-pub struct UserHabit {
+pub struct Habit {
     pub id: i32,
     pub user_id: i32,
     pub name: String,
@@ -77,7 +77,7 @@ pub struct UserHabit {
 
 #[derive(Insertable, Deserialize)]
 #[diesel(table_name = crate::db::schema::user_habits)]
-pub struct NewUserHabit {
+pub struct NewHabit {
     pub user_id: i32,
     pub name: String,
     pub weight: i32,
