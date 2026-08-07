@@ -6,8 +6,7 @@ use crate::db::schema::user_habits::dsl::{
     habit_type as uh_habit_type, id as uh_id, user_habits, user_id as uh_user_id,
 };
 use crate::utils::misc_types::{
-    DateRange, DateValuesMap, DayValuesStruct, GetCacheValuesAndMissingRangesResult, HabitDayValue,
-    MonthValuesStruct, MonthYear, NaiveDateRange, UserListResponse, ValuesDataEntry, ZoomLevel,
+    AppState, DateRange, DateValuesMap, DayValuesStruct, GetCacheValuesAndMissingRangesResult, HabitDayValue, MonthValuesStruct, MonthYear, NaiveDateRange, Storage, UserListResponse, ValuesDataEntry, ZoomLevel
 };
 use chrono::{Datelike, Duration, Months, NaiveDate};
 use diesel::ExpressionMethods;
@@ -18,6 +17,7 @@ use diesel::prelude::*;
 use image::{ImageBuffer, Rgb};
 use redis::Commands;
 use std::collections::HashMap;
+use actix_web::web;
 
 pub fn get_next_date((month, year): MonthYear, zoom: ZoomLevel) -> MonthYear {
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
@@ -330,4 +330,16 @@ pub fn create_period_image(
     )?;
 
     Ok(webp_data)
+}
+
+pub fn get_storage(state: web::Data<AppState>) -> Result<Storage, actix_web::Error> {
+    let db = state.db_pool.get().map_err(|e| {
+        println!("Pool error: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
+    let cache = state
+        .redis_client
+        .get_connection()
+        .expect("Failed to get cache connection");
+    Ok(Storage { db, cache })
 }

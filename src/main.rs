@@ -32,7 +32,7 @@ use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, name as u_name, users,
 };
 use crate::utils::general::{
-    create_period_image, get_cache_key, get_month_user_values_list, get_next_date, get_user_values_dates_map
+    create_period_image, get_cache_key, get_month_user_values_list, get_next_date, get_storage, get_user_values_dates_map
 };
 use crate::utils::misc_types::{AppState, ExtendedUserHabit, UserListResponse, ZoomLevel};
 use redis::Commands;
@@ -56,14 +56,11 @@ async fn create_user(
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user = req_body.into_inner();
     println!("Creating user: {:?}", new_user);
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
     let inserted = diesel::insert_into(users)
         .values(&new_user)
         .returning((u_id, u_name, u_email, u_created_at))
-        .get_result::<User>(&mut conn)
+        .get_result::<User>(&mut store.db)
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     println!("Inserted user: {:?}", inserted);
@@ -81,10 +78,7 @@ async fn update_user_habit(
         new_user_habit.name, new_user_habit.weight, new_user_habit.habit_type
     );
 
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
     let inserted = diesel::update(user_habits)
         .filter(uh_id.eq(new_user_habit.id))
         .set((
@@ -92,7 +86,7 @@ async fn update_user_habit(
             uh_weight.eq(new_user_habit.weight),
             uh_habit_type.eq(new_user_habit.habit_type),
         ))
-        .get_result::<UserHabit>(&mut conn)
+        .get_result::<UserHabit>(&mut store.db)
         .map_err(|e| {
             println!("Update error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -113,12 +107,10 @@ async fn delete_user_habit(
         "not yet", inner_user_habit_id
     );
 
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
+
     let result =
-        diesel::delete(user_habits.filter(uh_id.eq(inner_user_habit_id))).execute(&mut conn);
+        diesel::delete(user_habits.filter(uh_id.eq(inner_user_habit_id))).execute(&mut store.db);
     match result {
         Ok(0) => Ok(HttpResponse::NotFound().json("User not found")),
         Ok(_) => Ok(HttpResponse::Ok().json("User deleted")),
@@ -137,21 +129,14 @@ async fn reorder_user_habits(
     let user_habit_ids = req.into_inner().ordered_ids.clone();
 
     let result: Result<_, actix_web::Error> = Ok(web::block(move || {
-        let mut connection = state
-            .db_pool
-            .get()
-            .map_err(|e| {
-                println!("Pool error: {:?}", e);
-                actix_web::error::ErrorInternalServerError(e)
-            })
-            .expect("Connection to db failed");
+        let mut store = get_storage(state).expect("Failed to init storage");
 
-        let _ = connection
-            .transaction(|conn| {
+        let _ = store.db
+            .transaction(|db| {
                 for (index, user_habit_id) in user_habit_ids.iter().enumerate() {
                     diesel::update(user_habits.filter(uh_id.eq(user_habit_id)))
                         .set(uh_sequence.eq(index as i32 + 1))
-                        .execute(conn)?;
+                        .execute(db)?;
                 }
                 diesel::result::QueryResult::Ok(())
             })
@@ -182,13 +167,11 @@ async fn create_user_habit(
         new_user_habit.user_id, new_user_habit.name, new_user_habit.weight, new_user_habit.sequence
     );
 
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
+
     let inserted = diesel::insert_into(user_habits)
         .values(&new_user_habit)
-        .get_result::<UserHabit>(&mut conn)
+        .get_result::<UserHabit>(&mut store.db)
         .map_err(|e| {
             println!("Insert error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -210,17 +193,15 @@ async fn update_habit_value(
         new_habit_value.color.clone().unwrap_or("".to_string())
     );
 
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
+
     let inserted = diesel::update(habit_values)
         .filter(hv_id.eq(new_habit_value.id))
         .set((
             hv_label.eq(new_habit_value.label),
             hv_color.eq(new_habit_value.color),
         ))
-        .get_result::<HabitValue>(&mut conn)
+        .get_result::<HabitValue>(&mut store.db)
         .map_err(|e| {
             println!("Update error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -242,13 +223,11 @@ async fn create_habit_value(
         new_habit_value.color.clone().unwrap_or("".to_string())
     );
 
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
+
     let inserted = diesel::insert_into(habit_values)
         .values(&new_habit_value)
-        .get_result::<HabitValue>(&mut conn)
+        .get_result::<HabitValue>(&mut store.db)
         .map_err(|e| {
             println!("Insert error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -266,21 +245,15 @@ async fn reorder_habit_values(
     let habit_value_ids = req.into_inner().ordered_ids.clone();
 
     let result: Result<_, actix_web::Error> = Ok(web::block(move || {
-        let mut connection = state
-            .db_pool
-            .get()
-            .map_err(|e| {
-                println!("Pool error: {:?}", e);
-                actix_web::error::ErrorInternalServerError(e)
-            })
-            .expect("Connection to db failed");
+        let mut store = get_storage(state).expect("Failed to init storage");
 
-        let _ = connection
-            .transaction(|conn| {
+
+        let _ = store.db
+            .transaction(|db| {
                 for (index, habit_value_id) in habit_value_ids.iter().enumerate() {
                     diesel::update(habit_values.filter(hv_id.eq(habit_value_id)))
                         .set(hv_sequence.eq(index as i32 + 1))
-                        .execute(conn)?;
+                        .execute(db)?;
                 }
                 diesel::result::QueryResult::Ok(())
             })
@@ -311,12 +284,10 @@ async fn delete_habit_value(
         "not yet", inner_habit_value_id
     );
 
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
+
     let result =
-        diesel::delete(habit_values.filter(hv_id.eq(inner_habit_value_id))).execute(&mut conn);
+        diesel::delete(habit_values.filter(hv_id.eq(inner_habit_value_id))).execute(&mut store.db);
     match result {
         Ok(0) => Ok(HttpResponse::NotFound().json("User not found")),
         Ok(_) => Ok(HttpResponse::Ok().json("User deleted")),
@@ -343,14 +314,8 @@ async fn create_day_value(
         new_day_value.number.clone().unwrap_or(0),
         user_id
     );
-    let mut conn = state
-        .db_pool
-        .get()
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-    let mut cache = state
-        .redis_client
-        .get_connection()
-        .expect("Failed to get cache connection");
+
+    let mut store = get_storage(state).expect("Failed to init storage");
 
     let inserted = diesel::insert_into(day_values)
         .values(&new_day_value.clone())
@@ -362,19 +327,19 @@ async fn create_day_value(
             dv_number.eq(new_day_value.number),
             dv_created_at.eq(now),
         ))
-        .get_result::<DayValue>(&mut conn)
+        .get_result::<DayValue>(&mut store.db)
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let year = new_day_value.date.year();
     let month = new_day_value.date.month();
     let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
-    let _ = cache.del::<String, usize>(cache_key);
+    let _ = store.cache.del::<String, usize>(cache_key);
 
     Ok(HttpResponse::Ok().json(inserted))
 }
 
 async fn get_user_extended_habits(
-    conn: &mut PgConnection,
+    db: &mut PgConnection,
     user_id: i32,
 ) -> Result<Vec<ExtendedUserHabit>, actix_web::Error> {
     let habit_value = user_habits
@@ -407,7 +372,7 @@ async fn get_user_extended_habits(
             i32,
             Option<String>,
             NaiveDateTime,
-        )>(conn)
+        )>(db)
         .map_err(|e| {
             println!("Query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -480,12 +445,9 @@ async fn get_user_config(
     let inner_user_id = path_user_id.into_inner();
     // println!("Fetching user config for user_id: {}", inner_user_id);
 
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
 
-    let config = get_user_extended_habits(&mut conn, inner_user_id).await?;
+    let config = get_user_extended_habits(&mut store.db, inner_user_id).await?;
 
     Ok(HttpResponse::Ok().json(config))
 }
@@ -499,15 +461,8 @@ async fn get_user_list(
     let inner_user_id = path_user_id.into_inner();
     // println!("Fetching user list for user_id: {}", inner_user_id);
 
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
 
-    let mut cache = state
-        .redis_client
-        .get_connection()
-        .expect("Failed to get cache connection");
 
     if let (Some(date), Some(zoom), Some(count)) =
         (query.get("date"), query.get("zoom"), query.get("count"))
@@ -528,15 +483,15 @@ async fn get_user_list(
         // dbg!(start_date);
         // dbg!(end_date);
         let dates_map = get_user_values_dates_map(
-            &mut cache,
-            &mut conn,
+            &mut store.cache,
+            &mut store.db,
             inner_user_id,
             Some(start_date),
             Some(end_date),
         )
         .await?;
 
-        let habits = get_user_extended_habits(&mut conn, inner_user_id)
+        let habits = get_user_extended_habits(&mut store.db, inner_user_id)
             .await
             .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -614,23 +569,20 @@ async fn get_user_backup(
     let inner_user_id = path_user_id.into_inner();
     println!("Creating backup for user_id: {}", inner_user_id);
 
-    let mut conn = state.db_pool.get().map_err(|e| {
-        println!("Pool error: {:?}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
+    let mut store = get_storage(state).expect("Failed to init storage");
 
     // Fetch user info
     let user = users
         .filter(u_id.eq(inner_user_id))
         .select((u_id, u_name, u_email, u_created_at))
-        .first::<User>(&mut conn)
+        .first::<User>(&mut store.db)
         .map_err(|e| {
             println!("User query error: {:?}", e);
             actix_web::error::ErrorNotFound("User not found")
         })?;
 
     // Fetch all habits with their values
-    let habits = get_user_extended_habits(&mut conn, inner_user_id).await?;
+    let habits = get_user_extended_habits(&mut store.db, inner_user_id).await?;
 
     // Collect all habit ids
     let habit_ids: Vec<i32> = habits.iter().map(|h| h.habit.id).collect();
@@ -639,7 +591,7 @@ async fn get_user_backup(
     let all_day_values: Vec<DayValue> = day_values
         .filter(dv_habit_id.eq_any(&habit_ids))
         .order((dv_date.asc(), dv_habit_id.asc()))
-        .load::<DayValue>(&mut conn)
+        .load::<DayValue>(&mut store.db)
         .map_err(|e| {
             println!("Day values query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -728,10 +680,10 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Failed to create pool");
 
-    let mut conn = pool
+    let mut db = pool
         .get()
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    conn.run_pending_migrations(MIGRATIONS)
+    db.run_pending_migrations(MIGRATIONS)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     // cache

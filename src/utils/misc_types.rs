@@ -3,7 +3,7 @@ use crate::db::models::{HabitValue, UserHabit};
 use chrono::NaiveDate;
 use core::fmt;
 use diesel::pg::PgConnection;
-use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use redis::{FromRedisValue, ParsingError, RedisWrite, ToRedisArgs, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -137,4 +137,9 @@ pub struct SequenceUpdateRequest {
 pub struct AppState {
     pub db_pool: Pool<ConnectionManager<PgConnection>>,
     pub redis_client: redis::Client,
+}
+
+pub struct Storage {
+    pub db: PooledConnection<ConnectionManager<PgConnection>>,
+    pub cache: redis::Connection,
 }
