@@ -35,10 +35,12 @@ use crate::utils::general::{
     create_period_image, get_cache_key, get_month_user_values_list, get_next_date, get_storage, get_user_values_dates_map
 };
 use crate::utils::misc_types::{AppState, ExtendedUserHabit, UserListResponse, ZoomLevel};
+use crate::routes::users::create_user;
 use redis::Commands;
 
 mod db;
 mod utils;
+mod routes;
 
 //use tokio::time::{sleep, Duration};
 
@@ -50,20 +52,13 @@ mod utils;
 //delay_and_return(5).await.unwrap();
 
 #[post("/users")]
-async fn create_user(
+async fn create_user_route(
     state: web::Data<AppState>,
     req_body: web::Json<NewUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let new_user = req_body.into_inner();
-    println!("Creating user: {:?}", new_user);
     let mut store = get_storage(state).expect("Failed to init storage");
-    let inserted = diesel::insert_into(users)
-        .values(&new_user)
-        .returning((u_id, u_name, u_email, u_created_at))
-        .get_result::<User>(&mut store.db)
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    println!("Inserted user: {:?}", inserted);
+    let inserted = create_user(store, new_user).expect("Failed to create user");
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -699,7 +694,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(app_state.clone()))
             .wrap(Logger::default())
-            .service(create_user)
+            .service(create_user_route)
             .service(create_user_habit)
             .service(create_habit_value)
             .service(create_day_value)
