@@ -347,6 +347,10 @@ async fn create_day_value(
         .db_pool
         .get()
         .map_err(actix_web::error::ErrorInternalServerError)?;
+    let mut cache = state
+        .redis_client
+        .get_connection()
+        .expect("Failed to get cache connection");
 
     let inserted = diesel::insert_into(day_values)
         .values(&new_day_value.clone())
@@ -364,10 +368,6 @@ async fn create_day_value(
     let year = new_day_value.date.year();
     let month = new_day_value.date.month();
     let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
-    let mut cache = state
-        .redis_client
-        .get_connection()
-        .expect("Failed to get cache connection");
     let _ = cache.del::<String, usize>(cache_key);
 
     Ok(HttpResponse::Ok().json(inserted))
