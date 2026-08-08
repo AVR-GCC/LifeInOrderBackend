@@ -110,8 +110,34 @@ async fn reorder_habits_route(
     Ok(HttpResponse::Ok().json("Sequence updated"))
 }
 
+#[post("/habit_values")]
+async fn create_option_route(
+    state: web::Data<AppState>,
+    req_body: web::Json<NewHabitValue>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let new_habit_value = req_body.into_inner();
+    println!(
+        "Creating user_habit for habit_id: {}, color: {}",
+        new_habit_value.habit_id,
+        new_habit_value.color.clone().unwrap_or("".to_string())
+    );
+
+    let mut store = get_storage(state).expect("Failed to init storage");
+
+    let inserted = diesel::insert_into(habit_values)
+        .values(&new_habit_value)
+        .get_result::<HabitValue>(&mut store.db)
+        .map_err(|e| {
+            println!("Insert error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+
+    println!("Inserted habit_value: {:?}", inserted);
+    Ok(HttpResponse::Ok().json(inserted))
+}
+
 #[put("/habit_values")]
-async fn update_habit_value(
+async fn update_option_route(
     state: web::Data<AppState>,
     req_body: web::Json<HabitValue>,
 ) -> Result<HttpResponse, actix_web::Error> {
@@ -140,34 +166,33 @@ async fn update_habit_value(
     Ok(HttpResponse::Ok().json(inserted))
 }
 
-#[post("/habit_values")]
-async fn create_habit_value(
+#[delete("/habit_values/{id}")]
+async fn delete_option_route(
     state: web::Data<AppState>,
-    req_body: web::Json<NewHabitValue>,
+    path_habit_value_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let new_habit_value = req_body.into_inner();
+    let inner_habit_value_id = path_habit_value_id.into_inner();
     println!(
-        "Creating user_habit for habit_id: {}, color: {}",
-        new_habit_value.habit_id,
-        new_habit_value.color.clone().unwrap_or("".to_string())
+        "Deleting habit_value for user_id: {}, id: {}",
+        "not yet", inner_habit_value_id
     );
 
     let mut store = get_storage(state).expect("Failed to init storage");
 
-    let inserted = diesel::insert_into(habit_values)
-        .values(&new_habit_value)
-        .get_result::<HabitValue>(&mut store.db)
-        .map_err(|e| {
-            println!("Insert error: {:?}", e);
-            actix_web::error::ErrorInternalServerError(e)
-        })?;
-
-    println!("Inserted habit_value: {:?}", inserted);
-    Ok(HttpResponse::Ok().json(inserted))
+    let result =
+        diesel::delete(habit_values.filter(hv_id.eq(inner_habit_value_id))).execute(&mut store.db);
+    match result {
+        Ok(0) => Ok(HttpResponse::NotFound().json("User not found")),
+        Ok(_) => Ok(HttpResponse::Ok().json("User deleted")),
+        Err(err) => {
+            eprintln!("Error deleting user: {:?}", err);
+            Ok(HttpResponse::InternalServerError().json("Internal error"))
+        }
+    }
 }
 
 #[post("/habit_values/reorder")]
-async fn reorder_habit_values(
+async fn reorder_options_route(
     state: web::Data<AppState>,
     req: web::Json<SequenceUpdateRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
@@ -198,31 +223,6 @@ async fn reorder_habit_values(
         Err(e) => {
             eprintln!("Error updating sequence: {:?}", e);
             Ok(HttpResponse::InternalServerError().json("Failed to update sequence"))
-        }
-    }
-}
-
-#[delete("/habit_values/{id}")]
-async fn delete_habit_value(
-    state: web::Data<AppState>,
-    path_habit_value_id: web::Path<i32>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let inner_habit_value_id = path_habit_value_id.into_inner();
-    println!(
-        "Deleting habit_value for user_id: {}, id: {}",
-        "not yet", inner_habit_value_id
-    );
-
-    let mut store = get_storage(state).expect("Failed to init storage");
-
-    let result =
-        diesel::delete(habit_values.filter(hv_id.eq(inner_habit_value_id))).execute(&mut store.db);
-    match result {
-        Ok(0) => Ok(HttpResponse::NotFound().json("User not found")),
-        Ok(_) => Ok(HttpResponse::Ok().json("User deleted")),
-        Err(err) => {
-            eprintln!("Error deleting user: {:?}", err);
-            Ok(HttpResponse::InternalServerError().json("Internal error"))
         }
     }
 }
@@ -633,10 +633,10 @@ async fn main() -> std::io::Result<()> {
             .service(update_habit_route)
             .service(delete_habit_route)
             .service(reorder_habits_route)
-            .service(create_habit_value)
-            .service(update_habit_value)
-            .service(delete_habit_value)
-            .service(reorder_habit_values)
+            .service(create_option_route)
+            .service(update_option_route)
+            .service(delete_option_route)
+            .service(reorder_options_route)
             .service(create_day_value)
             .service(get_user_list)
             .service(get_user_config)
