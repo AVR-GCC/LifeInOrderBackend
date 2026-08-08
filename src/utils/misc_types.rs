@@ -1,5 +1,5 @@
 use crate::HashMap;
-use crate::db::models::{HabitValue, Habit};
+use crate::db::models::{VOption, Habit};
 use chrono::NaiveDate;
 use core::fmt;
 use diesel::pg::PgConnection;
@@ -104,9 +104,9 @@ pub struct GetCacheValuesAndMissingRangesResult {
 }
 
 #[derive(Serialize, Debug)]
-pub struct ExtendedUserHabit {
+pub struct ExtendedHabit {
     pub habit: Habit,
-    pub values: Vec<HabitValue>,
+    pub values: Vec<VOption>,
     pub values_hashmap: HashMap<i32, i32>,
 }
 
@@ -125,7 +125,7 @@ pub struct MonthValuesStruct {
 #[derive(Serialize, Debug)]
 pub struct UserListResponse {
     pub dates: Vec<DayValuesStruct>,
-    pub habits: Vec<ExtendedUserHabit>,
+    pub habits: Vec<ExtendedHabit>,
 }
 
 #[derive(Deserialize, Serialize)]

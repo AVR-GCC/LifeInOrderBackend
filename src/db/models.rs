@@ -86,7 +86,7 @@ pub struct NewHabit {
 }
 
 #[derive(Queryable, Deserialize, Serialize, Debug)]
-pub struct HabitValue {
+pub struct VOption {
     pub id: i32,
     pub label: Option<String>,
     pub sequence: i32,
@@ -97,7 +97,7 @@ pub struct HabitValue {
 
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::habit_values)]
-pub struct NewHabitValue {
+pub struct NewVOption {
     pub habit_id: i32,
     pub label: Option<String>,
     pub sequence: i32,

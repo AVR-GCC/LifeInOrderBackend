@@ -16,7 +16,7 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{
-    DayValue, HabitValue, NewDayValue, NewHabitValue, NewUser, User, Habit, NewHabit
+    DayValue, VOption, NewDayValue, NewVOption, NewUser, User, Habit, NewHabit
 };
 use crate::db::schema::day_values::dsl::{
     created_at as dv_created_at, date as dv_date, day_values, habit_id as dv_habit_id,
@@ -36,7 +36,7 @@ use crate::db::schema::users::dsl::{
 use crate::utils::general::{
     create_period_image, get_cache_key, get_month_user_values_list, get_next_date, get_storage, get_user_values_dates_map
 };
-use crate::utils::misc_types::{AppState, ExtendedUserHabit, UserListResponse, ZoomLevel};
+use crate::utils::misc_types::{AppState, ExtendedHabit, UserListResponse, ZoomLevel};
 use crate::routes::users::create_user;
 use redis::Commands;
 
@@ -114,7 +114,7 @@ async fn reorder_habits_route(
 #[post("/habit_values")]
 async fn create_option_route(
     state: web::Data<AppState>,
-    req_body: web::Json<NewHabitValue>,
+    req_body: web::Json<NewVOption>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let store = get_storage(state).expect("Failed to init storage");
     let new_option = req_body.into_inner();
@@ -125,7 +125,7 @@ async fn create_option_route(
 #[put("/habit_values")]
 async fn update_option_route(
     state: web::Data<AppState>,
-    req_body: web::Json<HabitValue>,
+    req_body: web::Json<VOption>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let store = get_storage(state).expect("Failed to init storage");
     let option = req_body.into_inner();
@@ -201,7 +201,7 @@ async fn create_day_value(
 async fn get_user_extended_habits(
     db: &mut PgConnection,
     user_id: i32,
-) -> Result<Vec<ExtendedUserHabit>, actix_web::Error> {
+) -> Result<Vec<ExtendedHabit>, actix_web::Error> {
     let habit_value = user_habits
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .filter(uh_user_id.eq(user_id))
@@ -238,7 +238,7 @@ async fn get_user_extended_habits(
             actix_web::error::ErrorInternalServerError(e)
         })?;
 
-    let mut habits_map: HashMap<i32, ExtendedUserHabit> = HashMap::new();
+    let mut habits_map: HashMap<i32, ExtendedHabit> = HashMap::new();
 
     for (
         habit_id,
@@ -256,7 +256,7 @@ async fn get_user_extended_habits(
     ) in habit_value
     {
         // Habits: habit_id -> details with values
-        let habit_entry = habits_map.entry(habit_id).or_insert(ExtendedUserHabit {
+        let habit_entry = habits_map.entry(habit_id).or_insert(ExtendedHabit {
             habit: Habit {
                 id: habit_id,
                 name: habit_name,
@@ -269,7 +269,7 @@ async fn get_user_extended_habits(
             values: Vec::new(),
             values_hashmap: HashMap::new(),
         });
-        habit_entry.values.push(HabitValue {
+        habit_entry.values.push(VOption {
             id: value_id,
             label: value_label,
             sequence: value_sequence,
@@ -279,7 +279,7 @@ async fn get_user_extended_habits(
         });
     }
 
-    let mut habits: Vec<ExtendedUserHabit> = habits_map
+    let mut habits: Vec<ExtendedHabit> = habits_map
         .into_iter()
         .map(|(_, mut habit)| {
             habit.values.sort_by(|a, b| a.sequence.cmp(&b.sequence));

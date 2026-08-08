@@ -2,21 +2,16 @@ use core::result::Result;
 
 use diesel::prelude::*;
 
-use crate::db::models::{HabitValue, NewHabitValue};
-use crate::db::schema::habit_values::dsl::{
-    color as hv_color, created_at as hv_created_at, habit_id as hv_habit_id, habit_values,
-    id as hv_id, label as hv_label, sequence as hv_sequence,
-};
+use crate::db::models::{VOption, NewVOption};
+use crate::db::schema::habit_values::dsl::{color as hv_color, habit_values, id as hv_id, label as hv_label, sequence as hv_sequence};
 use crate::utils::misc_types::Storage;
-use redis::Commands;
-use diesel::prelude::*;
 
 use actix_web::web;
 
 pub fn create_option(
     mut store: Storage,
-    new_option: NewHabitValue
-) -> Result<HabitValue, actix_web::Error> {
+    new_option: NewVOption
+) -> Result<VOption, actix_web::Error> {
     println!(
         "Creating user_habit for habit_id: {}, color: {}",
         new_option.habit_id,
@@ -25,7 +20,7 @@ pub fn create_option(
 
     let inserted = diesel::insert_into(habit_values)
         .values(&new_option)
-        .get_result::<HabitValue>(&mut store.db)
+        .get_result::<VOption>(&mut store.db)
         .map_err(|e| {
             println!("Insert error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -38,8 +33,8 @@ pub fn create_option(
 
 pub fn update_option(
     mut store: Storage,
-    option: HabitValue
-) -> Result<HabitValue, actix_web::Error> {
+    option: VOption
+) -> Result<VOption, actix_web::Error> {
     println!(
         "Updating option for habit_id: {}, color: {}",
         option.habit_id,
@@ -52,7 +47,7 @@ pub fn update_option(
             hv_label.eq(option.label),
             hv_color.eq(option.color),
         ))
-        .get_result::<HabitValue>(&mut store.db)
+        .get_result::<VOption>(&mut store.db)
         .map_err(|e| {
             println!("Update error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
