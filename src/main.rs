@@ -16,7 +16,7 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{
-    DayValue, VOption, NewDayValue, NewVOption, NewUser, User, Habit, NewHabit
+    DayValue, Habit, HabitType, NewDayValue, NewHabit, NewUser, NewVOption, User, VOption
 };
 use crate::db::schema::day_values::dsl::{
     created_at as dv_created_at, date as dv_date, day_values, habit_id as dv_habit_id,
@@ -224,7 +224,7 @@ async fn get_user_extended_habits(
             String,
             i32,
             i32,
-            String,
+            HabitType,
             i32,
             NaiveDateTime,
             i32,
@@ -400,7 +400,7 @@ async fn get_user_list(
             }
             let habits = habits
                 .into_iter()
-                .filter(|habit| habit.habit.habit_type == "color")
+                .filter(|habit| habit.habit.habit_type == HabitType::Color)
                 .collect();
             let response = UserListResponse { dates, habits };
             match create_period_image(response, total_width, row_height) {

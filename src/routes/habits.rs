@@ -13,8 +13,8 @@ pub fn create_habit(
     new_habit: NewHabit
 ) -> Result<Habit, actix_web::Error> {
     println!(
-        "Creating habit for user_id: {}, name: {:?}, weight: {}, sequence: {}",
-        new_habit.user_id, new_habit.name, new_habit.weight, new_habit.sequence
+        "Creating habit for user_id: {}, name: {:?}, weight: {}, sequence: {}, habit_type: {:?}",
+        new_habit.user_id, new_habit.name, new_habit.weight, new_habit.sequence, new_habit.habit_type
     );
 
     let inserted = diesel::insert_into(user_habits)
@@ -35,7 +35,7 @@ pub fn update_habit(
     habit: Habit
 ) -> Result<Habit, actix_web::Error> {
     println!(
-        "Updating user_habit for name: {}, weight: {}, habit_type: {}",
+        "Updating user_habit for name: {}, weight: {}, habit_type: {:?}",
         habit.name, habit.weight, habit.habit_type
     );
 

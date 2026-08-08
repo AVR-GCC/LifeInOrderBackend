@@ -8,11 +8,11 @@ use diesel::sql_types::Text;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 
-#[derive(Serialize)]
-pub struct DayColor {
-    pub color: Option<String>,
-    pub date: NaiveDate,
-}
+// #[derive(Serialize)]
+// pub struct DayColor {
+//     pub color: Option<String>,
+//     pub date: NaiveDate,
+// }
 
 #[derive(Queryable, Serialize, Debug)]
 pub struct User {
@@ -29,8 +29,8 @@ pub struct NewUser {
     pub email: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[derive(diesel_derive_enum::DbEnum, Debug, PartialEq, Deserialize, Serialize)]
+#[db_enum(existing_type_path = "crate::db::schema::sql_types::HabitType")]
 pub enum HabitType {
     Color,
     Text,
@@ -42,9 +42,9 @@ impl FromSql<Text, Pg> for HabitType {
     fn from_sql(bytes: <Pg as Backend>::RawValue<'_>) -> deserialize::Result<Self> {
         let s = <String as FromSql<Text, Pg>>::from_sql(bytes)?;
         match s.as_str() {
-            "color" => Ok(HabitType::Color),
-            "text" => Ok(HabitType::Text),
-            "number" => Ok(HabitType::Number),
+            "Color" => Ok(HabitType::Color),
+            "Text" => Ok(HabitType::Text),
+            "Number" => Ok(HabitType::Number),
             _ => Err(format!("Unknown habit type: {}", s).into()),
         }
     }
@@ -54,12 +54,23 @@ impl FromSql<Text, Pg> for HabitType {
 impl ToSql<Text, Pg> for HabitType {
     fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
         let value = match self {
-            HabitType::Color => "color",
-            HabitType::Text => "text",
-            HabitType::Number => "number",
+            HabitType::Color => "Color",
+            HabitType::Text => "Text",
+            HabitType::Number => "Number",
         };
         out.write_all(value.as_bytes())?;
         Ok(serialize::IsNull::No)
+    }
+}
+
+impl std::fmt::Display for HabitType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            HabitType::Color => "Color",
+            HabitType::Text => "Text",
+            HabitType::Number => "Number",
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -70,19 +81,18 @@ pub struct Habit {
     pub name: String,
     pub weight: i32,
     pub sequence: i32,
-    #[diesel(sql_type = Text)]
-    pub habit_type: String,
+    pub habit_type: HabitType,
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::user_habits)]
 pub struct NewHabit {
     pub user_id: i32,
     pub name: String,
     pub weight: i32,
     pub sequence: i32,
-    pub habit_type: String,
+    pub habit_type: HabitType,
 }
 
 #[derive(Queryable, Deserialize, Serialize, Debug)]

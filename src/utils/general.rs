@@ -1,3 +1,4 @@
+use crate::db::models::HabitType;
 use crate::db::schema::day_values::dsl::{
     date as dv_date, day_values, text as dv_text, value_id as dv_value_id,
 };
@@ -164,7 +165,7 @@ pub fn values_data_into_map(
         let year = date.year();
         let date_str = date.to_string();
         let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
-        let value = if habit_type == "text" {
+        let value = if habit_type == HabitType::Text {
             HabitDayValue::Text(text.unwrap_or_default())
         } else {
             HabitDayValue::Int(day_value_id)

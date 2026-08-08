@@ -1,5 +1,5 @@
 use crate::HashMap;
-use crate::db::models::{VOption, Habit};
+use crate::db::models::{Habit, HabitType, VOption};
 use chrono::NaiveDate;
 use core::fmt;
 use diesel::pg::PgConnection;
@@ -81,7 +81,7 @@ impl FromStr for ZoomLevel {
     }
 }
 
-pub type ValuesDataEntry = (i32, String, NaiveDate, i32, Option<String>);
+pub type ValuesDataEntry = (i32, HabitType, NaiveDate, i32, Option<String>);
 
 pub type DateValuesMap = HashMap<String, HashMap<i32, HabitDayValue>>;
 

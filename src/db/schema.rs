@@ -1,5 +1,11 @@
 // @generated automatically by Diesel CLI.
 
+pub mod sql_types {
+    #[derive(diesel::query_builder::QueryId, Clone, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "habit_type"))]
+    pub struct HabitType;
+}
+
 diesel::table! {
     day_values (id) {
         id -> Int4,
@@ -24,13 +30,16 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::HabitType;
+
     user_habits (id) {
         id -> Int4,
         user_id -> Int4,
         name -> Varchar,
         weight -> Int4,
         sequence -> Int4,
-        habit_type -> Varchar,
+        habit_type -> HabitType,
         created_at -> Timestamp,
     }
 }
