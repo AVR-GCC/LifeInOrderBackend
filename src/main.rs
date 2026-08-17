@@ -2,9 +2,9 @@ mod config;
 use crate::config::Config;
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
 use crate::routes::options::{create_option, delete_option, reorder_options, update_option};
+use crate::routes::values::set_value;
 use actix_web::{App, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web};
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
-use diesel::dsl::now;
 use std::collections::HashMap;
 use std::str::FromStr;
 use utils::misc_types::SequenceUpdateRequest;
@@ -16,11 +16,10 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{
-    DayValue, Habit, HabitType, NewDayValue, NewHabit, NewUser, NewVOption, User, VOption
+    Value, Habit, HabitType, NewValue, NewHabit, NewUser, NewVOption, User, VOption
 };
 use crate::db::schema::day_values::dsl::{
-    created_at as dv_created_at, date as dv_date, day_values, habit_id as dv_habit_id,
-    number as dv_number, text as dv_text, value_id as dv_value_id,
+    date as dv_date, day_values, habit_id as dv_habit_id,
 };
 use crate::db::schema::habit_values::dsl::{
     color as hv_color, created_at as hv_created_at, habit_id as hv_habit_id, habit_values,
@@ -34,11 +33,10 @@ use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, name as u_name, users,
 };
 use crate::utils::general::{
-    create_period_image, get_cache_key, get_month_user_values_list, get_next_date, get_storage, get_user_values_dates_map
+    create_period_image, get_month_user_values_list, get_next_date, get_storage, get_user_values_dates_map
 };
 use crate::utils::misc_types::{AppState, ExtendedHabit, UserListResponse, ZoomLevel};
 use crate::routes::users::create_user;
-use redis::Commands;
 
 mod db;
 mod utils;
@@ -158,43 +156,15 @@ async fn reorder_options_route(
     Ok(HttpResponse::Ok().json("Sequence updated"))
 }
 
-#[post("/day_values")]
-async fn create_day_value(
+#[post("/values")]
+async fn set_value_route(
     state: web::Data<AppState>,
-    req_body: web::Json<NewDayValue>,
+    req_body: web::Json<NewValue>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let new_day_value = req_body.into_inner();
+    let store = get_storage(state).expect("Failed to init storage");
     let user_id = 1;
-    println!(
-        "Creating day_value for value_id: {}, habit_id: {}, date: {}, text: {}, number: {}, for user: {}",
-        new_day_value.value_id,
-        new_day_value.habit_id,
-        new_day_value.date,
-        new_day_value.text.clone().unwrap_or("".to_string()),
-        new_day_value.number.clone().unwrap_or(0),
-        user_id
-    );
-
-    let mut store = get_storage(state).expect("Failed to init storage");
-
-    let inserted = diesel::insert_into(day_values)
-        .values(&new_day_value.clone())
-        .on_conflict((dv_date, dv_habit_id))
-        .do_update()
-        .set((
-            dv_value_id.eq(new_day_value.value_id),
-            dv_text.eq(new_day_value.text),
-            dv_number.eq(new_day_value.number),
-            dv_created_at.eq(now),
-        ))
-        .get_result::<DayValue>(&mut store.db)
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let year = new_day_value.date.year();
-    let month = new_day_value.date.month();
-    let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
-    let _ = store.cache.del::<String, usize>(cache_key);
-
+    let new_value = req_body.into_inner();
+    let inserted = set_value(store, new_value, user_id).expect("Failed to update option");
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -448,10 +418,10 @@ async fn get_user_backup(
     let habit_ids: Vec<i32> = habits.iter().map(|h| h.habit.id).collect();
 
     // Fetch all day_values for all of the user's habits
-    let all_day_values: Vec<DayValue> = day_values
+    let all_day_values: Vec<Value> = day_values
         .filter(dv_habit_id.eq_any(&habit_ids))
         .order((dv_date.asc(), dv_habit_id.asc()))
-        .load::<DayValue>(&mut store.db)
+        .load::<Value>(&mut store.db)
         .map_err(|e| {
             println!("Day values query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -568,7 +538,7 @@ async fn main() -> std::io::Result<()> {
             .service(update_option_route)
             .service(delete_option_route)
             .service(reorder_options_route)
-            .service(create_day_value)
+            .service(set_value_route)
             .service(get_user_list)
             .service(get_user_config)
             .service(get_user_backup)

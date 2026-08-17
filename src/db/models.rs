@@ -115,7 +115,7 @@ pub struct NewVOption {
 }
 
 #[derive(Queryable, Serialize, Debug)]
-pub struct DayValue {
+pub struct Value {
     pub id: i32,
     pub value_id: i32,
     pub habit_id: i32,
@@ -127,7 +127,7 @@ pub struct DayValue {
 
 #[derive(Insertable, Deserialize, Debug, Clone)]
 #[diesel(table_name = crate::db::schema::day_values)]
-pub struct NewDayValue {
+pub struct NewValue {
     pub value_id: i32,
     pub habit_id: i32,
     pub date: NaiveDate,
