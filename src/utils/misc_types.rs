@@ -44,7 +44,7 @@ impl FromRedisValue for HabitDayValue {
 
 pub type MonthYear = (u32, i32);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum ZoomLevel {
     Day = 1,
     Quarter = 3,
@@ -79,6 +79,16 @@ impl FromStr for ZoomLevel {
             _ => Err(format!("{s} is not a valid zoom value")),
         }
     }
+}
+
+impl ZoomLevel {
+    pub const ALL: [ZoomLevel; 5] = [
+        ZoomLevel::Day,
+        ZoomLevel::Quarter,
+        ZoomLevel::Half,
+        ZoomLevel::Year,
+        ZoomLevel::TwoYear
+    ];
 }
 
 pub type ValuesDataEntry = (i32, HabitType, NaiveDate, i32, Option<String>);
