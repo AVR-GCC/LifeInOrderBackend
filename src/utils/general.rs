@@ -159,7 +159,7 @@ pub fn values_data_into_map(
 ) -> HashMap<String, DateValuesMap> {
     let mut dates_maps_map: HashMap<String, DateValuesMap> = HashMap::new();
 
-    for (habit_id, habit_type, date, day_value_id, text) in value_data {
+    for (habit_id, habit_type, date, value_id, text) in value_data {
         // Dates: date -> habit_id -> HabitDayValue
         let month = date.month();
         let year = date.year();
@@ -168,7 +168,7 @@ pub fn values_data_into_map(
         let value = if habit_type == HabitType::Text {
             HabitDayValue::Text(text.unwrap_or_default())
         } else {
-            HabitDayValue::Int(day_value_id)
+            HabitDayValue::Int(value_id)
         };
         dates_maps_map
             .entry(cache_key)
