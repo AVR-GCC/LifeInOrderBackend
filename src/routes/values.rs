@@ -1,3 +1,5 @@
+use core::iter::Iterator;
+
 use chrono::Datelike;
 use diesel::dsl::now;
 use crate::utils::misc_types::Storage;
@@ -44,6 +46,10 @@ pub fn set_value(
     let month = new_value.date.month();
     let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
     let _ = store.cache.del::<String, usize>(cache_key);
+    let keys: Vec<String> = ZoomLevel::ALL.iter().map(|zoom| { get_cache_key(user_id, year, month, *zoom) }).collect();
+    for key in &keys {
+        let _ = store.cache.del::<String, usize>(key.to_string());
+    }
 
     Ok(inserted)
 }
