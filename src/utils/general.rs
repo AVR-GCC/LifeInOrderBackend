@@ -71,7 +71,28 @@ pub fn fill_dates_list(
 }
 
 pub fn get_cache_key(user_id: i32, year: i32, month: u32, zoom: ZoomLevel) -> String {
-    format!("{user_id}-{zoom}-{year}-{month}")
+    let (cache_year, cache_month) = match zoom {
+        ZoomLevel::Day => (year, month),
+        ZoomLevel::Quarter => {
+            let cm = match month {
+                m if m < 4 => 1,
+                m if m < 7 => 4,
+                m if m < 10 => 7,
+                _ => 10
+            };
+            (year, cm)
+        },
+        ZoomLevel::Half => {
+            let cm = if month < 7 { 1 } else { 7 };
+            (year, cm)
+        },
+        ZoomLevel::Year => (year, 1),
+        ZoomLevel::TwoYear => {
+            let cy = if year % 2 == 0 { year } else { year - 1 };
+            (cy, 1)
+        }
+    };
+    format!("{user_id}-{zoom}-{cache_year}-{cache_month}")
 }
 
 pub async fn get_day_level_cache_data(
