@@ -24,3 +24,5 @@ image = { version = "0.25", features = ["webp"] }
 redis = { version = "1.5.0", features = ["tokio-comp", "tls-rustls", "tokio-rustls-comp"] }
 rustls = "0.23"
 diesel-derive-enum = { version = "3.0.0-beta.1", features = ["postgres"] }
+actix-ws = "0.3"
+futures-util = "0.3"
