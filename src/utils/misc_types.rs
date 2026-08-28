@@ -1,5 +1,5 @@
 use crate::HashMap;
-use crate::db::models::{Habit, HabitType, VOption};
+use crate::db::models::{Habit, HabitType, NewValue, VOption};
 use chrono::NaiveDate;
 use core::fmt;
 use diesel::pg::PgConnection;
@@ -153,3 +153,45 @@ pub struct Storage {
     pub db: PooledConnection<ConnectionManager<PgConnection>>,
     pub cache: redis::Connection,
 }
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "route", content = "params")]
+pub enum RouteParams {
+    #[serde(rename = "values")]
+    Values(NewValue),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SocketRequest {
+    pub id: String,
+    #[serde(flatten)]
+    pub action: RouteParams,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SocketResponse<T> {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<T>,
+}
+
+// impl<T> SocketResponse<T> {
+//     /// Helper to construct a successful response
+//     pub fn success(id: impl Into<String>, data: T) -> Self {
+//         Self {
+//             id: id.into(),
+//             error: None,
+//             data: Some(data),
+//         }
+//     }
+//
+//     /// Helper to construct an error response
+//     pub fn error(id: impl Into<String>, error: impl Into<String>) -> Self {
+//         Self {
+//             id: id.into(),
+//             error: Some(error.into()),
+//             data: None,
+//         }
+//     }
+// }

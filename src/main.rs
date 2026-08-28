@@ -4,7 +4,7 @@ use crate::routes::aggregates::{get_backup, get_extended_habits, get_list};
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
 use crate::routes::options::{create_option, delete_option, reorder_options, update_option};
 use crate::routes::values::set_value;
-use actix_web::{App, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web};
+use actix_web::{App, HttpRequest, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web};
 use chrono::{NaiveDate};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -16,15 +16,65 @@ use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{
-    Habit, NewValue, NewHabit, NewUser, NewVOption, VOption
+    Habit, NewHabit, NewUser, NewVOption, VOption, Value
 };
 use crate::utils::general::{get_storage};
-use crate::utils::misc_types::{AppState, UserListResponse, ZoomLevel};
+use crate::utils::misc_types::{AppState, RouteParams, SocketRequest, SocketResponse, UserListResponse, ZoomLevel};
 use crate::routes::users::create_user;
 
 mod db;
 mod utils;
 mod routes;
+use actix_ws::Message;
+use futures_util::StreamExt;
+
+async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppState>) -> Result<HttpResponse, actix_web::Error> {
+    let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
+
+    actix_web::rt::spawn(async move {
+        while let Some(Ok(msg)) = msg_stream.next().await {
+            match msg {
+                Message::Text(text) => {
+                    println!("text {}", text);
+                    let store = get_storage(state.clone()).expect("Failed to init storage");
+                    let user_id = 1;
+                    let req: SocketRequest = serde_json::from_str(text.to_string().as_str()).expect("Malformed socket request");
+                    match req.action {
+                        RouteParams::Values(new_value) => {
+                            let inserted = set_value(store, new_value, user_id).expect("Failed to update option");
+                            // let ret = format!("{:?}", inserted);
+                            let res = SocketResponse::<Value> {
+                                id: req.id,
+                                data: Some(inserted),
+                                error: None
+                            };
+                            let ret = serde_json::to_string(&res).unwrap();
+                            println!("ret {}", ret);
+                            if session.text(ret).await.is_err() {
+                                break; // client disconnected
+                            }
+                        }
+                    }
+                    if let Ok(num) = text.trim().parse::<i64>() {
+                        let incremented = num + 1;
+                        println!("Backend received {num}, sending {incremented}");
+
+                        if session.text(incremented.to_string()).await.is_err() {
+                            break; // client disconnected
+                        }
+                    }
+                }
+                Message::Close(reason) => {
+                    let _ = session.close(reason).await;
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
+
+    Ok(response)
+}
 
 #[post("/users")]
 async fn create_user_route(
@@ -131,18 +181,6 @@ async fn reorder_options_route(
     Ok(HttpResponse::Ok().json("Sequence updated"))
 }
 
-#[post("/values")]
-async fn set_value_route(
-    state: web::Data<AppState>,
-    req_body: web::Json<NewValue>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
-    let user_id = 1;
-    let new_value = req_body.into_inner();
-    let inserted = set_value(store, new_value, user_id).expect("Failed to update option");
-    Ok(HttpResponse::Ok().json(inserted))
-}
-
 #[get("/users/{path_user_id}/config")]
 async fn get_config_route(
     state: web::Data<AppState>,
@@ -245,11 +283,11 @@ async fn main() -> std::io::Result<()> {
             .service(update_option_route)
             .service(delete_option_route)
             .service(reorder_options_route)
-            .service(set_value_route)
             .service(get_list_route)
             .service(get_config_route)
             .service(get_backup_route)
             .service(ping)
+            .route("/ws", web::get().to(ws_handler))
         //.route("/hey", web::get().to(manual_hello))
     })
     .bind(format!("{}:{}", c.host, c.port))?

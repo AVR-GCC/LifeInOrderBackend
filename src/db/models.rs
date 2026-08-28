@@ -125,7 +125,7 @@ pub struct Value {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize, Debug, Clone)]
+#[derive(Insertable, Serialize, Deserialize, Debug, Clone)]
 #[diesel(table_name = crate::db::schema::day_values)]
 pub struct NewValue {
     pub value_id: i32,
