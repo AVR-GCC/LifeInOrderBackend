@@ -134,7 +134,7 @@ async fn reorder_habits_route(
     Ok(HttpResponse::Ok().json("Sequence updated"))
 }
 
-#[post("/habit_values")]
+#[post("/options")]
 async fn create_option_route(
     state: web::Data<AppState>,
     req_body: web::Json<NewVOption>,
@@ -145,7 +145,7 @@ async fn create_option_route(
     Ok(HttpResponse::Ok().json(inserted))
 }
 
-#[put("/habit_values")]
+#[put("/options")]
 async fn update_option_route(
     state: web::Data<AppState>,
     req_body: web::Json<VOption>,
@@ -156,7 +156,7 @@ async fn update_option_route(
     Ok(HttpResponse::Ok().json(inserted))
 }
 
-#[delete("/habit_values/{id}")]
+#[delete("/options/{id}")]
 async fn delete_option_route(
     state: web::Data<AppState>,
     path_option_id: web::Path<i32>,
@@ -170,7 +170,7 @@ async fn delete_option_route(
     Ok(HttpResponse::Ok().json("Option deleted"))
 }
 
-#[post("/habit_values/reorder")]
+#[post("/options/reorder")]
 async fn reorder_options_route(
     state: web::Data<AppState>,
     req: web::Json<SequenceUpdateRequest>,
