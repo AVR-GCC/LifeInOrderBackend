@@ -181,6 +181,18 @@ async fn reorder_options_route(
     Ok(HttpResponse::Ok().json("Sequence updated"))
 }
 
+#[post("/values")]
+async fn set_value_route(
+    state: web::Data<AppState>,
+    req_body: web::Json<NewValue>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let store = get_storage(state).expect("Failed to init storage");
+    let user_id = 1;
+    let new_value = req_body.into_inner();
+    let inserted = set_value(store, new_value, user_id).expect("Failed to update option");
+    Ok(HttpResponse::Ok().json(inserted))
+}
+
 #[get("/users/{path_user_id}/config")]
 async fn get_config_route(
     state: web::Data<AppState>,
@@ -283,6 +295,7 @@ async fn main() -> std::io::Result<()> {
             .service(update_option_route)
             .service(delete_option_route)
             .service(reorder_options_route)
+            .service(set_value_route)
             .service(get_list_route)
             .service(get_config_route)
             .service(get_backup_route)
