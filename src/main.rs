@@ -16,7 +16,7 @@ use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{
-    Habit, NewHabit, NewUser, NewVOption, VOption, Value
+    Habit, NewHabit, NewUser, NewVOption, NewValue, VOption, Value
 };
 use crate::utils::general::{get_storage};
 use crate::utils::misc_types::{AppState, RouteParams, SocketRequest, SocketResponse, UserListResponse, ZoomLevel};
