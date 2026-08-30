@@ -156,8 +156,10 @@ pub struct Storage {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "route", content = "params")]
 pub enum RouteParams {
-    #[serde(rename = "values")]
+    #[serde(rename = "values-post")]
     Values(NewValue),
+    #[serde(rename = "options-delete")]
+    OptionDelete(i32),
 }
 
 #[derive(Serialize, Deserialize, Debug)]

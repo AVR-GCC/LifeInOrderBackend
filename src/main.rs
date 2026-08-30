@@ -39,29 +39,34 @@ async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppSt
                     let store = get_storage(state.clone()).expect("Failed to init storage");
                     let user_id = 1;
                     let req: SocketRequest = serde_json::from_str(text.to_string().as_str()).expect("Malformed socket request");
-                    match req.action {
+                    let ret = match req.action {
+                        RouteParams::OptionDelete(option_id) => {
+                            let result = delete_option(store, option_id).expect("Failed to delete option");
+                            // let ret = format!("{:?}", inserted);
+                            let res = SocketResponse::<bool> {
+                                id: req.id,
+                                data: if result == 0 { None } else { Some(true) },
+                                error: if result == 0 { Some("Delete failed".to_string()) } else { None },
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("ans {}", ans);
+                            ans
+                        }
                         RouteParams::Values(new_value) => {
                             let inserted = set_value(store, new_value, user_id).expect("Failed to update option");
-                            // let ret = format!("{:?}", inserted);
+                            // let ans = format!("{:?}", inserted);
                             let res = SocketResponse::<Value> {
                                 id: req.id,
                                 data: Some(inserted),
                                 error: None
                             };
-                            let ret = serde_json::to_string(&res).unwrap();
-                            println!("ret {}", ret);
-                            if session.text(ret).await.is_err() {
-                                break; // client disconnected
-                            }
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("ans {}", ans);
+                            ans
                         }
-                    }
-                    if let Ok(num) = text.trim().parse::<i64>() {
-                        let incremented = num + 1;
-                        println!("Backend received {num}, sending {incremented}");
-
-                        if session.text(incremented.to_string()).await.is_err() {
-                            break; // client disconnected
-                        }
+                    };
+                    if session.text(ret).await.is_err() {
+                        break; // client disconnected
                     }
                 }
                 Message::Close(reason) => {
