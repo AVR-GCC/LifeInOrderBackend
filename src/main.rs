@@ -40,6 +40,66 @@ async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppSt
                     let user_id = 1;
                     let req: SocketRequest = serde_json::from_str(text.to_string().as_str()).expect("Malformed socket request");
                     let ret = match req.action {
+                        RouteParams::HabitPut(habit) => {
+                            let inserted = update_habit(store, habit).expect("Failed to update habit");
+                            // let ret = format!("{:?}", inserted);
+                            let res = SocketResponse::<Habit> {
+                                id: req.id,
+                                data: Some(inserted),
+                                error: None,
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("socket HabitPut {}", ans);
+                            ans
+                        }
+                        RouteParams::HabitsReorder(payload) => {
+                            let _result = reorder_habits(store, payload.ordered_ids).await.expect("Failed to reorder habits");
+                            // let ret = format!("{:?}", inserted);
+                            let res = SocketResponse::<bool> {
+                                id: req.id,
+                                data: Some(true),
+                                error: None,
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("socket HabitsReorder {}", ans);
+                            ans
+                        }
+                        RouteParams::HabitDelete(habit_id) => {
+                            let result = delete_habit(store, habit_id).expect("Failed to delete habit");
+                            // let ret = format!("{:?}", inserted);
+                            let res = SocketResponse::<bool> {
+                                id: req.id,
+                                data: if result == 0 { None } else { Some(true) },
+                                error: if result == 0 { Some("Delete failed".to_string()) } else { None },
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("socket HabitDelete {}", ans);
+                            ans
+                        }
+                        RouteParams::OptionPut(option) => {
+                            let inserted = update_option(store, option).expect("Failed to update option");
+                            // let ret = format!("{:?}", inserted);
+                            let res = SocketResponse::<VOption> {
+                                id: req.id,
+                                data: Some(inserted),
+                                error: None,
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("socket OptionPut {}", ans);
+                            ans
+                        }
+                        RouteParams::OptionsReorder(payload) => {
+                            let _result = reorder_options(store, payload.ordered_ids).await.expect("Failed to reorder options");
+                            // let ret = format!("{:?}", inserted);
+                            let res = SocketResponse::<bool> {
+                                id: req.id,
+                                data: Some(true),
+                                error: None,
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("socket OptionsReorder {}", ans);
+                            ans
+                        }
                         RouteParams::OptionDelete(option_id) => {
                             let result = delete_option(store, option_id).expect("Failed to delete option");
                             // let ret = format!("{:?}", inserted);
@@ -49,7 +109,7 @@ async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppSt
                                 error: if result == 0 { Some("Delete failed".to_string()) } else { None },
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("ans {}", ans);
+                            println!("socket OptionDelete {}", ans);
                             ans
                         }
                         RouteParams::Values(new_value) => {
@@ -61,7 +121,7 @@ async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppSt
                                 error: None
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("ans {}", ans);
+                            println!("socket Values {}", ans);
                             ans
                         }
                     };

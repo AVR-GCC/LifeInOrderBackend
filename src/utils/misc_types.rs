@@ -138,7 +138,7 @@ pub struct UserListResponse {
     pub habits: Vec<ExtendedHabit>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct SequenceUpdateRequest {
     pub ordered_ids: Vec<i32>,
 }
@@ -158,8 +158,18 @@ pub struct Storage {
 pub enum RouteParams {
     #[serde(rename = "values-post")]
     Values(NewValue),
+    #[serde(rename = "options-put")]
+    OptionPut(VOption),
+    #[serde(rename = "options-reorder-post")]
+    OptionsReorder(SequenceUpdateRequest),
     #[serde(rename = "options-delete")]
     OptionDelete(i32),
+    #[serde(rename = "habits-put")]
+    HabitPut(Habit),
+    #[serde(rename = "habits-reorder-post")]
+    HabitsReorder(SequenceUpdateRequest),
+    #[serde(rename = "habits-delete")]
+    HabitDelete(i32),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
