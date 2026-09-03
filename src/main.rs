@@ -87,6 +87,19 @@ async fn ws_handler(
                             println!("socket HabitDelete {}", ans);
                             ans
                         }
+                        RouteParams::OptionPost(new_option) => {
+                            let inserted =
+                                create_option(store, new_option).expect("Failed to update option");
+                            // let ret = format!("{:?}", inserted);
+                            let res = SocketResponse::<VOption> {
+                                id: req.id,
+                                data: Some(inserted),
+                                error: None,
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("socket OptionPost {}", ans);
+                            ans
+                        }
                         RouteParams::OptionPut(option) => {
                             let inserted = update_option(store, option).expect("Failed to update option");
                             // let ret = format!("{:?}", inserted);

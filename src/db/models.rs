@@ -105,7 +105,7 @@ pub struct VOption {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(Insertable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::habit_values)]
 pub struct NewVOption {
     pub habit_id: i32,

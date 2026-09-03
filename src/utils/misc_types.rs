@@ -1,5 +1,5 @@
 use crate::HashMap;
-use crate::db::models::{Habit, HabitType, NewValue, VOption};
+use crate::db::models::{Habit, HabitType, NewVOption, NewValue, VOption};
 use chrono::NaiveDate;
 use core::fmt;
 use diesel::pg::PgConnection;
@@ -158,6 +158,8 @@ pub struct Storage {
 pub enum RouteParams {
     #[serde(rename = "values-post")]
     Values(NewValue),
+    #[serde(rename = "options-post")]
+    OptionPost(NewVOption),
     #[serde(rename = "options-put")]
     OptionPut(VOption),
     #[serde(rename = "options-reorder-post")]
