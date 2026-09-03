@@ -198,7 +198,7 @@ async fn delete_habit_route(
     let habit_id = path_habit_id.into_inner();
     let result = delete_habit(store, habit_id).expect("Failed to delete habit");
     if result == 0 {
-        return Ok(HttpResponse::NotFound().json("Habit not found"))
+        return Ok(HttpResponse::NotFound().json("Habit not found"));
     }
     Ok(HttpResponse::Ok().json("Habit deleted"))
 }
@@ -245,7 +245,7 @@ async fn delete_option_route(
     let option_id = path_option_id.into_inner();
     let result = delete_option(store, option_id).expect("Failed to delete option");
     if result == 0 {
-        return Ok(HttpResponse::NotFound().json("Option not found"))
+        return Ok(HttpResponse::NotFound().json("Option not found"));
     }
     Ok(HttpResponse::Ok().json("Option deleted"))
 }
