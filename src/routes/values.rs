@@ -1,12 +1,12 @@
 use core::iter::Iterator;
 
+use crate::utils::misc_types::Storage;
 use chrono::Datelike;
 use diesel::dsl::now;
-use crate::utils::misc_types::Storage;
 
 use diesel::prelude::*;
 
-use crate::db::models::{Value, NewValue};
+use crate::db::models::{NewValue, Value};
 use crate::db::schema::day_values::dsl::{
     created_at as dv_created_at, date as dv_date, day_values, habit_id as dv_habit_id,
     number as dv_number, text as dv_text, value_id as dv_value_id,
@@ -19,7 +19,7 @@ pub fn set_value(
     mut store: Storage,
     new_value: NewValue,
     user_id: i32,
-) -> Result<Value , actix_web::Error> {
+) -> Result<Value, actix_web::Error> {
     println!(
         "Creating value for value_id: {}, habit_id: {}, date: {}, text: {}, number: {}",
         new_value.value_id,
@@ -46,7 +46,10 @@ pub fn set_value(
     let month = new_value.date.month();
     let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
     let _ = store.cache.del::<String, usize>(cache_key);
-    let keys: Vec<String> = ZoomLevel::ALL.iter().map(|zoom| { get_cache_key(user_id, year, month, *zoom) }).collect();
+    let keys: Vec<String> = ZoomLevel::ALL
+        .iter()
+        .map(|zoom| get_cache_key(user_id, year, month, *zoom))
+        .collect();
     for key in &keys {
         let _ = store.cache.del::<String, usize>(key.to_string());
     }

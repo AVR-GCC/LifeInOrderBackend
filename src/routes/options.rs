@@ -2,15 +2,17 @@ use core::result::Result;
 
 use diesel::prelude::*;
 
-use crate::db::models::{VOption, NewVOption};
-use crate::db::schema::habit_values::dsl::{color as hv_color, habit_values, id as hv_id, label as hv_label, sequence as hv_sequence};
+use crate::db::models::{NewVOption, VOption};
+use crate::db::schema::habit_values::dsl::{
+    color as hv_color, habit_values, id as hv_id, label as hv_label, sequence as hv_sequence,
+};
 use crate::utils::misc_types::Storage;
 
 use actix_web::web;
 
 pub fn create_option(
     mut store: Storage,
-    new_option: NewVOption
+    new_option: NewVOption,
 ) -> Result<VOption, actix_web::Error> {
     println!(
         "Creating user_habit for habit_id: {}, color: {}",
@@ -66,8 +68,7 @@ pub fn delete_option(
         "not yet", option_id
     );
 
-    let result =
-        diesel::delete(habit_values.filter(hv_id.eq(option_id)))
+    let result = diesel::delete(habit_values.filter(hv_id.eq(option_id)))
         .execute(&mut store.db)
         .map_err(|e| {
             println!("Delete error: {:?}", e);
@@ -79,7 +80,7 @@ pub fn delete_option(
 
 pub async fn reorder_options(
     mut store: Storage,
-    option_ids: Vec<i32>
+    option_ids: Vec<i32>,
 ) -> Result<(), actix_web::Error> {
     let _result: Result<_, actix_web::Error> = Ok(web::block(move || {
 
@@ -97,6 +98,6 @@ pub async fn reorder_options(
                 actix_web::error::ErrorInternalServerError(e)
             });
     })
-        .await);
+    .await);
     Ok(())
 }

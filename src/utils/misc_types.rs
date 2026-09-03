@@ -87,7 +87,7 @@ impl ZoomLevel {
         ZoomLevel::Quarter,
         ZoomLevel::Half,
         ZoomLevel::Year,
-        ZoomLevel::TwoYear
+        ZoomLevel::TwoYear,
     ];
 }
 

@@ -2,8 +2,11 @@ use core::result::Result;
 
 use diesel::prelude::*;
 
-use crate::db::schema::user_habits::dsl::{habit_type as uh_habit_type, id as uh_id, name as uh_name, sequence as uh_sequence, user_habits, weight as uh_weight};
-use crate::utils::misc_types::{Storage};
+use crate::db::schema::user_habits::dsl::{
+    habit_type as uh_habit_type, id as uh_id, name as uh_name, sequence as uh_sequence,
+    user_habits, weight as uh_weight,
+};
+use crate::utils::misc_types::Storage;
 
 use crate::db::models::{Habit, NewHabit};
 use actix_web::web;
@@ -14,7 +17,11 @@ pub fn create_habit(
 ) -> Result<Habit, actix_web::Error> {
     println!(
         "Creating habit for user_id: {}, name: {:?}, weight: {}, sequence: {}, habit_type: {:?}",
-        new_habit.user_id, new_habit.name, new_habit.weight, new_habit.sequence, new_habit.habit_type
+        new_habit.user_id,
+        new_habit.name,
+        new_habit.weight,
+        new_habit.sequence,
+        new_habit.habit_type
     );
 
     let inserted = diesel::insert_into(user_habits)
@@ -66,8 +73,7 @@ pub fn delete_habit(
         "not yet", habit_id
     );
 
-    let result =
-        diesel::delete(user_habits.filter(uh_id.eq(habit_id)))
+    let result = diesel::delete(user_habits.filter(uh_id.eq(habit_id)))
         .execute(&mut store.db)
         .map_err(|e| {
             println!("Delete error: {:?}", e);
@@ -79,7 +85,7 @@ pub fn delete_habit(
 
 pub async fn reorder_habits(
     mut store: Storage,
-    habit_ids: Vec<i32>
+    habit_ids: Vec<i32>,
 ) -> Result<(), actix_web::Error> {
     let _result: Result<_, actix_web::Error> = Ok(web::block(move || {
 
@@ -97,6 +103,6 @@ pub async fn reorder_habits(
                 actix_web::error::ErrorInternalServerError(e)
             });
     })
-        .await);
+    .await);
     Ok(())
 }

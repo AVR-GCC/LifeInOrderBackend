@@ -7,8 +7,11 @@ use crate::db::schema::user_habits::dsl::{
     habit_type as uh_habit_type, id as uh_id, user_habits, user_id as uh_user_id,
 };
 use crate::utils::misc_types::{
-    AppState, DateRange, DateValuesMap, DayValuesStruct, GetCacheValuesAndMissingRangesResult, HabitDayValue, MonthValuesStruct, MonthYear, NaiveDateRange, Storage, UserListResponse, ValuesDataEntry, ZoomLevel
+    AppState, DateRange, DateValuesMap, DayValuesStruct, GetCacheValuesAndMissingRangesResult,
+    HabitDayValue, MonthValuesStruct, MonthYear, NaiveDateRange, Storage, UserListResponse,
+    ValuesDataEntry, ZoomLevel,
 };
+use actix_web::web;
 use chrono::{Datelike, Duration, Months, NaiveDate};
 use diesel::ExpressionMethods;
 use diesel::JoinOnDsl;
@@ -18,7 +21,6 @@ use diesel::prelude::*;
 use image::{ImageBuffer, Rgb};
 use redis::Commands;
 use std::collections::HashMap;
-use actix_web::web;
 
 pub fn get_next_date((month, year): MonthYear, zoom: ZoomLevel) -> MonthYear {
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
@@ -78,14 +80,14 @@ pub fn get_cache_key(user_id: i32, year: i32, month: u32, zoom: ZoomLevel) -> St
                 m if m < 4 => 1,
                 m if m < 7 => 4,
                 m if m < 10 => 7,
-                _ => 10
+                _ => 10,
             };
             (year, cm)
-        },
+        }
         ZoomLevel::Half => {
             let cm = if month < 7 { 1 } else { 7 };
             (year, cm)
-        },
+        }
         ZoomLevel::Year => (year, 1),
         ZoomLevel::TwoYear => {
             let cy = if year % 2 == 0 { year } else { year - 1 };

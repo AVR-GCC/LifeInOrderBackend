@@ -4,8 +4,10 @@ use crate::routes::aggregates::{get_backup, get_extended_habits, get_list};
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
 use crate::routes::options::{create_option, delete_option, reorder_options, update_option};
 use crate::routes::values::set_value;
-use actix_web::{App, HttpRequest, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web};
-use chrono::{NaiveDate};
+use actix_web::{
+    App, HttpRequest, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web,
+};
+use chrono::NaiveDate;
 use std::collections::HashMap;
 use std::str::FromStr;
 use utils::misc_types::SequenceUpdateRequest;
@@ -15,20 +17,24 @@ const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
-use crate::db::models::{
-    Habit, NewHabit, NewUser, NewVOption, NewValue, VOption, Value
-};
-use crate::utils::general::{get_storage};
-use crate::utils::misc_types::{AppState, RouteParams, SocketRequest, SocketResponse, UserListResponse, ZoomLevel};
+use crate::db::models::{Habit, NewHabit, NewUser, NewVOption, NewValue, VOption, Value};
 use crate::routes::users::create_user;
+use crate::utils::general::get_storage;
+use crate::utils::misc_types::{
+    AppState, RouteParams, SocketRequest, SocketResponse, UserListResponse, ZoomLevel,
+};
 
 mod db;
-mod utils;
 mod routes;
+mod utils;
 use actix_ws::Message;
 use futures_util::StreamExt;
 
-async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppState>) -> Result<HttpResponse, actix_web::Error> {
+async fn ws_handler(
+    req: HttpRequest,
+    body: web::Payload,
+    state: web::Data<AppState>,
+) -> Result<HttpResponse, actix_web::Error> {
     let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
 
     actix_web::rt::spawn(async move {
@@ -38,7 +44,8 @@ async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppSt
                     println!("text {}", text);
                     let store = get_storage(state.clone()).expect("Failed to init storage");
                     let user_id = 1;
-                    let req: SocketRequest = serde_json::from_str(text.to_string().as_str()).expect("Malformed socket request");
+                    let req: SocketRequest = serde_json::from_str(text.to_string().as_str())
+                        .expect("Malformed socket request");
                     let ret = match req.action {
                         RouteParams::HabitPut(habit) => {
                             let inserted = update_habit(store, habit).expect("Failed to update habit");
@@ -70,7 +77,11 @@ async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppSt
                             let res = SocketResponse::<bool> {
                                 id: req.id,
                                 data: if result == 0 { None } else { Some(true) },
-                                error: if result == 0 { Some("Delete failed".to_string()) } else { None },
+                                error: if result == 0 {
+                                    Some("Delete failed".to_string())
+                                } else {
+                                    None
+                                },
                             };
                             let ans = serde_json::to_string(&res).unwrap();
                             println!("socket HabitDelete {}", ans);
@@ -106,7 +117,11 @@ async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppSt
                             let res = SocketResponse::<bool> {
                                 id: req.id,
                                 data: if result == 0 { None } else { Some(true) },
-                                error: if result == 0 { Some("Delete failed".to_string()) } else { None },
+                                error: if result == 0 {
+                                    Some("Delete failed".to_string())
+                                } else {
+                                    None
+                                },
                             };
                             let ans = serde_json::to_string(&res).unwrap();
                             println!("socket OptionDelete {}", ans);
@@ -118,7 +133,7 @@ async fn ws_handler(req: HttpRequest, body: web::Payload, state: web::Data<AppSt
                             let res = SocketResponse::<Value> {
                                 id: req.id,
                                 data: Some(inserted),
-                                error: None
+                                error: None,
                             };
                             let ans = serde_json::to_string(&res).unwrap();
                             println!("socket Values {}", ans);
@@ -277,7 +292,6 @@ async fn get_list_route(
 ) -> Result<HttpResponse, actix_web::Error> {
     let user_id = path_user_id.into_inner();
     let store = get_storage(state).expect("Failed to init storage");
-
 
     if let (Some(date), Some(zoom), Some(count)) =
         (query.get("date"), query.get("zoom"), query.get("count"))

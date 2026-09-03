@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse};
+use actix_web::HttpResponse;
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
 use std::collections::HashMap;
 
@@ -23,7 +23,7 @@ use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, name as u_name, users,
 };
 use crate::utils::general::{
-    create_period_image, get_month_user_values_list, get_next_date, get_user_values_dates_map
+    create_period_image, get_month_user_values_list, get_next_date, get_user_values_dates_map,
 };
 use crate::utils::misc_types::{ExtendedHabit, Storage, UserListResponse, ZoomLevel};
 
@@ -163,8 +163,7 @@ pub async fn get_list(
         let mut dates = Vec::new();
         let (mut cur_month, mut cur_year) = (month, year);
         for _ in 0..count {
-            let month_values =
-            get_month_user_values_list(cur_month, cur_year, user_id, &dates_map);
+            let month_values = get_month_user_values_list(cur_month, cur_year, user_id, &dates_map);
             dates.push(month_values);
             (cur_month, cur_year) = get_next_date((cur_month, cur_year), zoom);
         }
