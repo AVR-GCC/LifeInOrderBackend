@@ -85,7 +85,7 @@ pub struct Habit {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(Insertable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::user_habits)]
 pub struct NewHabit {
     pub user_id: i32,

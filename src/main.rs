@@ -47,6 +47,25 @@ async fn ws_handler(
                     let req: SocketRequest = serde_json::from_str(text.to_string().as_str())
                         .expect("Malformed socket request");
                     let ret = match req.action {
+                        RouteParams::HabitPost(new_habit_req) => {
+                            let new_habit = NewHabit {
+                                user_id,
+                                name: new_habit_req.name,
+                                weight: new_habit_req.weight,
+                                sequence: new_habit_req.sequence,
+                                habit_type: new_habit_req.habit_type,
+                            };
+                            let inserted = create_habit(store, new_habit).expect("Failed to update habit");
+                            // let ret = format!("{:?}", inserted);
+                            let res = SocketResponse::<Habit> {
+                                id: req.id,
+                                data: Some(inserted),
+                                error: None,
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("socket HabitPost {}", ans);
+                            ans
+                        }
                         RouteParams::HabitPut(habit) => {
                             let inserted = update_habit(store, habit).expect("Failed to update habit");
                             // let ret = format!("{:?}", inserted);
@@ -88,8 +107,7 @@ async fn ws_handler(
                             ans
                         }
                         RouteParams::OptionPost(new_option) => {
-                            let inserted =
-                                create_option(store, new_option).expect("Failed to update option");
+                            let inserted = create_option(store, new_option).expect("Failed to update option");
                             // let ret = format!("{:?}", inserted);
                             let res = SocketResponse::<VOption> {
                                 id: req.id,

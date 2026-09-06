@@ -143,6 +143,14 @@ pub struct SequenceUpdateRequest {
     pub ordered_ids: Vec<i32>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateHabitRequest {
+    pub name: String,
+    pub weight: i32,
+    pub sequence: i32,
+    pub habit_type: HabitType,
+}
+
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub db_pool: Pool<ConnectionManager<PgConnection>>,
@@ -166,6 +174,8 @@ pub enum RouteParams {
     OptionsReorder(SequenceUpdateRequest),
     #[serde(rename = "options-delete")]
     OptionDelete(i32),
+    #[serde(rename = "habits-post")]
+    HabitPost(CreateHabitRequest),
     #[serde(rename = "habits-put")]
     HabitPut(Habit),
     #[serde(rename = "habits-reorder-post")]
