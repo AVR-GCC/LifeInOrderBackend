@@ -44,7 +44,7 @@ impl FromRedisValue for HabitDayValue {
 
 pub type MonthYear = (u32, i32);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 pub enum ZoomLevel {
     Day = 1,
     Quarter = 3,
@@ -56,11 +56,11 @@ pub enum ZoomLevel {
 impl fmt::Display for ZoomLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            ZoomLevel::Day => "day",
-            ZoomLevel::Quarter => "quarter",
-            ZoomLevel::Half => "half",
-            ZoomLevel::Year => "year",
-            ZoomLevel::TwoYear => "two_year",
+            ZoomLevel::Day => "Day",
+            ZoomLevel::Quarter => "Quarter",
+            ZoomLevel::Half => "Half",
+            ZoomLevel::Year => "Year",
+            ZoomLevel::TwoYear => "Two_year",
         };
         write!(f, "{s}")
     }
@@ -71,11 +71,11 @@ impl FromStr for ZoomLevel {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "day" => Ok(ZoomLevel::Day),
-            "quarter" => Ok(ZoomLevel::Quarter),
-            "half" => Ok(ZoomLevel::Half),
-            "year" => Ok(ZoomLevel::Year),
-            "two_year" => Ok(ZoomLevel::TwoYear),
+            "Day" => Ok(ZoomLevel::Day),
+            "Quarter" => Ok(ZoomLevel::Quarter),
+            "Half" => Ok(ZoomLevel::Half),
+            "Year" => Ok(ZoomLevel::Year),
+            "Two_year" => Ok(ZoomLevel::TwoYear),
             _ => Err(format!("{s} is not a valid zoom value")),
         }
     }
@@ -127,9 +127,28 @@ pub struct DayValuesStruct {
 }
 
 #[derive(Serialize, Clone, Debug)]
+pub struct PeriodImageStruct {
+    pub range: DateRange,
+    pub image: String,
+    pub zoom: ZoomLevel,
+}
+
+#[derive(Serialize, Clone, Debug)]
 pub struct MonthValuesStruct {
     pub range: DateRange,
     pub days: Vec<DayValuesStruct>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct UserListRequest {
+    pub width: i32,
+    pub date: NaiveDate,
+    pub zoom: ZoomLevel,
+}
+
+pub enum ValuesOrImage {
+    Values(MonthValuesStruct),
+    Image(PeriodImageStruct),
 }
 
 #[derive(Serialize, Debug)]
@@ -161,6 +180,7 @@ pub struct Storage {
     pub db: PooledConnection<ConnectionManager<PgConnection>>,
     pub cache: redis::Connection,
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "route", content = "params")]
 pub enum RouteParams {
@@ -182,6 +202,8 @@ pub enum RouteParams {
     HabitsReorder(SequenceUpdateRequest),
     #[serde(rename = "habits-delete")]
     HabitDelete(i32),
+    #[serde(rename = "list-get")]
+    ListGet(UserListRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
