@@ -60,7 +60,7 @@ impl fmt::Display for ZoomLevel {
             ZoomLevel::Quarter => "Quarter",
             ZoomLevel::Half => "Half",
             ZoomLevel::Year => "Year",
-            ZoomLevel::TwoYear => "Two_year",
+            ZoomLevel::TwoYear => "TwoYear",
         };
         write!(f, "{s}")
     }
@@ -75,7 +75,7 @@ impl FromStr for ZoomLevel {
             "Quarter" => Ok(ZoomLevel::Quarter),
             "Half" => Ok(ZoomLevel::Half),
             "Year" => Ok(ZoomLevel::Year),
-            "Two_year" => Ok(ZoomLevel::TwoYear),
+            "TwoYear" => Ok(ZoomLevel::TwoYear),
             _ => Err(format!("{s} is not a valid zoom value")),
         }
     }
