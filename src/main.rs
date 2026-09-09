@@ -1,6 +1,6 @@
 mod config;
 use crate::config::Config;
-use crate::routes::aggregates::{get_backup, get_extended_habits, get_list};
+use crate::routes::aggregates::{get_backup, get_extended_habits, get_list, get_list_socket};
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
 use crate::routes::options::{create_option, delete_option, reorder_options, update_option};
 use crate::routes::values::set_value;
@@ -21,7 +21,7 @@ use crate::db::models::{Habit, NewHabit, NewUser, NewVOption, NewValue, VOption,
 use crate::routes::users::create_user;
 use crate::utils::general::get_storage;
 use crate::utils::misc_types::{
-    AppState, RouteParams, SocketRequest, SocketResponse, UserListResponse, ZoomLevel,
+    AppState, MonthValuesStruct, RouteParams, SocketRequest, SocketResponse, UserListResponse, ValuesOrImage, ZoomLevel
 };
 
 mod db;
@@ -47,6 +47,25 @@ async fn ws_handler(
                     let req: SocketRequest = serde_json::from_str(text.to_string().as_str())
                         .expect("Malformed socket request");
                     let ret = match req.action {
+                        RouteParams::ListGet(get_list_req) => {
+                            let data = get_list_socket(store, user_id, get_list_req.date, get_list_req.zoom, get_list_req.width).await.expect("Failed to get list");
+                            let str_data = match data {
+                                ValuesOrImage::Values(values_list) => {
+                                    serde_json::to_string(&values_list).unwrap()
+                                }
+                                ValuesOrImage::Image(image_data) => {
+                                    serde_json::to_string(&image_data).unwrap()
+                                }
+                            };
+                            let res = SocketResponse::<String> {
+                                id: req.id,
+                                data: Some(str_data),
+                                error: None,
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("socket ListGet {}", ans);
+                            ans
+                        }
                         RouteParams::HabitPost(new_habit_req) => {
                             let new_habit = NewHabit {
                                 user_id,
