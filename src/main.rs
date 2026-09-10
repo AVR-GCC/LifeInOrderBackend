@@ -21,7 +21,7 @@ use crate::db::models::{Habit, NewHabit, NewUser, NewVOption, NewValue, VOption,
 use crate::routes::users::create_user;
 use crate::utils::general::get_storage;
 use crate::utils::misc_types::{
-    AppState, MonthValuesStruct, RouteParams, SocketRequest, SocketResponse, UserListResponse, ValuesOrImage, ZoomLevel
+    AppState, RouteParams, SocketRequest, SocketResponse, UserListResponse, ValuesOrImage, ZoomLevel
 };
 
 mod db;
