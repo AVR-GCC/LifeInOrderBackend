@@ -3,6 +3,8 @@ use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
 use std::collections::HashMap;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 
+use redis::Commands;
+
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
@@ -24,7 +26,7 @@ use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, name as u_name, users,
 };
 use crate::utils::general::{
-    create_period_image, get_month_user_values_list, get_next_date, get_user_values_dates_map,
+    create_period_image, get_cache_key, get_month_user_values_list, get_next_date, get_user_values_dates_map
 };
 use crate::utils::misc_types::{DateRange, ExtendedHabit, PeriodImageStruct, Storage, UserListResponse, ValuesOrImage, ZoomLevel};
 
@@ -162,61 +164,71 @@ pub async fn get_list_socket(
         let month_values = get_month_user_values_list(month, year, user_id, &dates_map);
         Ok(ValuesOrImage::Values(month_values))
     } else {
-        let dates_map = get_user_values_dates_map(
-            &mut store.cache,
-            &mut store.db,
-            user_id,
-            Some(start_date),
-            Some(end_date),
-        )
-        .await?;
-        let row_height = match zoom {
-            ZoomLevel::Quarter => 8,
-            ZoomLevel::Half => 4,
-            ZoomLevel::Year => 2,
-            ZoomLevel::TwoYear => 1,
-            _ => 1,
-        };
-        let mut dates = Vec::new();
-        let mut current_month = start_date.month();
-        let mut current_year = start_date.year();
-
-        while current_month != end_month || current_year != end_year {
-            let mut month_values = get_month_user_values_list(
-                current_month,
-                current_year,
+        let key = get_cache_key(user_id, year, month, zoom);
+        let value_opt: Option<String> = store.cache.get(&key).unwrap();
+        if let Some(cache_value) = value_opt {
+            let period_image_struct = PeriodImageStruct { range, image: cache_value, zoom };
+            Ok(ValuesOrImage::Image(period_image_struct))
+        } else {
+            let dates_map = get_user_values_dates_map(
+                &mut store.cache,
+                &mut store.db,
                 user_id,
-                &dates_map,
-            );
-            dates.append(&mut month_values.days);
-            if current_month == 12 {
-                current_month = 1;
-                current_year += 1;
-            } else {
-                current_month += 1;
+                Some(start_date),
+                Some(end_date),
+            )
+            .await?;
+            let row_height = match zoom {
+                ZoomLevel::Quarter => 8,
+                ZoomLevel::Half => 4,
+                ZoomLevel::Year => 2,
+                ZoomLevel::TwoYear => 1,
+                _ => 1,
+            };
+            let mut dates = Vec::new();
+            let mut current_month = start_date.month();
+            let mut current_year = start_date.year();
+
+            while current_month != end_month || current_year != end_year {
+                let mut month_values = get_month_user_values_list(
+                    current_month,
+                    current_year,
+                    user_id,
+                    &dates_map,
+                );
+                dates.append(&mut month_values.days);
+                if current_month == 12 {
+                    current_month = 1;
+                    current_year += 1;
+                } else {
+                    current_month += 1;
+                }
             }
-        }
-        let habits = get_extended_habits(&mut store.db, user_id)
-            .await
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            let habits = get_extended_habits(&mut store.db, user_id)
+                .await
+                .map_err(actix_web::error::ErrorInternalServerError)?;
 
-        let habits = habits
-            .into_iter()
-            .filter(|habit| habit.habit.habit_type == HabitType::Color)
-            .collect();
-        let response = UserListResponse { dates, habits };
+            let habits = habits
+                .into_iter()
+                .filter(|habit| habit.habit.habit_type == HabitType::Color)
+                .collect();
+            let response = UserListResponse { dates, habits };
 
-        match create_period_image(response, width, row_height) {
-            Ok(webp_data) => {
-                let mut base64_image = String::with_capacity("data:image/webp;base64,".len() + (webp_data.len() + 2) / 3 * 4);
-                base64_image.push_str("data:image/webp;base64,");
-                STANDARD.encode_string(&webp_data, &mut base64_image);
-                let period_image_struct = PeriodImageStruct { range, image: base64_image, zoom };
-                Ok(ValuesOrImage::Image(period_image_struct))
-            },
-            Err(e) => {
-                println!("Error generating visualization: {:?}", e);
-                Err(actix_web::error::ErrorInternalServerError(e))
+            match create_period_image(response, width, row_height) {
+                Ok(webp_data) => {
+                    let mut base64_image = String::with_capacity("data:image/webp;base64,".len() + (webp_data.len() + 2) / 3 * 4);
+                    base64_image.push_str("data:image/webp;base64,");
+                    STANDARD.encode_string(&webp_data, &mut base64_image);
+                    let _: () = store.cache
+                        .set(key, &base64_image)
+                        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+                    let period_image_struct = PeriodImageStruct { range, image: base64_image, zoom };
+                    Ok(ValuesOrImage::Image(period_image_struct))
+                },
+                Err(e) => {
+                    println!("Error generating visualization: {:?}", e);
+                    Err(actix_web::error::ErrorInternalServerError(e))
+                }
             }
         }
     }

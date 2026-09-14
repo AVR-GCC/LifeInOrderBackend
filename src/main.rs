@@ -63,7 +63,7 @@ async fn ws_handler(
                                 error: None,
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket ListGet {}", ans);
+                            // println!("socket ListGet {}", ans);
                             ans
                         }
                         RouteParams::HabitPost(new_habit_req) => {
