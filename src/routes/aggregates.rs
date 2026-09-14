@@ -139,27 +139,37 @@ pub async fn get_list_socket(
     let start_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let (to_month, to_year) = get_next_date((month, year), zoom);
     let end_date = NaiveDate::from_ymd_opt(to_year, to_month, 1).unwrap();
-
-    // dbg!(date);
-    // dbg!(start_date);
-    // dbg!(end_date);
-    let dates_map = get_user_values_dates_map(
-        &mut store.cache,
-        &mut store.db,
-        user_id,
-        Some(start_date),
-        Some(end_date),
-    )
-    .await?;
-
-    let habits = get_extended_habits(&mut store.db, user_id)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let end_month = end_date.month();
+    let end_year = end_date.year();
+    let start = format!("{}-{:02}-01", year, month);
+    let end = format!(
+        "{}-{:02}-01",
+        end_year,
+        end_month,
+    );
+    let range = DateRange { start, end };
 
     if matches!(zoom, ZoomLevel::Day) {
+        let dates_map = get_user_values_dates_map(
+            &mut store.cache,
+            &mut store.db,
+            user_id,
+            Some(start_date),
+            Some(end_date),
+        )
+        .await?;
+
         let month_values = get_month_user_values_list(month, year, user_id, &dates_map);
         Ok(ValuesOrImage::Values(month_values))
     } else {
+        let dates_map = get_user_values_dates_map(
+            &mut store.cache,
+            &mut store.db,
+            user_id,
+            Some(start_date),
+            Some(end_date),
+        )
+        .await?;
         let row_height = match zoom {
             ZoomLevel::Quarter => 8,
             ZoomLevel::Half => 4,
@@ -170,8 +180,6 @@ pub async fn get_list_socket(
         let mut dates = Vec::new();
         let mut current_month = start_date.month();
         let mut current_year = start_date.year();
-        let end_month = end_date.month();
-        let end_year = end_date.year();
 
         while current_month != end_month || current_year != end_year {
             let mut month_values = get_month_user_values_list(
@@ -188,18 +196,15 @@ pub async fn get_list_socket(
                 current_month += 1;
             }
         }
+        let habits = get_extended_habits(&mut store.db, user_id)
+            .await
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+
         let habits = habits
             .into_iter()
             .filter(|habit| habit.habit.habit_type == HabitType::Color)
             .collect();
         let response = UserListResponse { dates, habits };
-        let start = format!("{}-{:02}-01", year, month);
-        let end = format!(
-            "{}-{:02}-01",
-            end_year,
-            end_month,
-        );
-        let range = DateRange { start, end };
 
         match create_period_image(response, width, row_height) {
             Ok(webp_data) => {
