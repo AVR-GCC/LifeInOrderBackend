@@ -640,15 +640,19 @@ async fn privacy_policy() -> Result<HttpResponse, actix_web::Error> {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // crypto
+    println!("Starting main - installing rustls crypto provider");
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");
 
+    println!("Installed rustls crypto provider - initializing env logger");
     // logger
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    println!("Initialized env logger - Getting server config");
 
     // config
     let c = Config::from_env().expect("Server Configuration");
+    println!("Got server config - Connecting to pg db");
 
     // db
     let manager = ConnectionManager::<PgConnection>::new(&c.database_url);
@@ -656,20 +660,25 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Failed to create pool");
 
+    println!("Connected to pg db - Connecting to pool");
     let mut db = pool
         .get()
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    println!("Connected to pool - Running migrations");
     db.run_pending_migrations(MIGRATIONS)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
+    println!("Migrations run - Connecting to redis");
     // cache
     let client = redis::Client::open(c.cache_url).expect("Failed to open cache client");
+    println!("Connected to redis - Creating AppState");
 
     let app_state = AppState {
         db_pool: pool.clone(),
         redis_client: client,
     };
 
+    println!("AppState created - Running server");
     // run
     HttpServer::new(move || {
         App::new()
