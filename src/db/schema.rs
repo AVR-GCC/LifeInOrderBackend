@@ -19,17 +19,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    habit_values (id) {
-        id -> Int4,
-        label -> Nullable<Varchar>,
-        sequence -> Int4,
-        habit_id -> Int4,
-        color -> Nullable<Varchar>,
-        created_at -> Timestamp,
-    }
-}
-
-diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::HabitType;
 
@@ -45,6 +34,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    options (id) {
+        id -> Int4,
+        label -> Nullable<Varchar>,
+        sequence -> Int4,
+        habit_id -> Int4,
+        color -> Nullable<Varchar>,
+        created_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     users (id) {
         id -> Int4,
         name -> Varchar,
@@ -53,9 +53,9 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(day_values -> habit_values (value_id));
 diesel::joinable!(day_values -> habits (habit_id));
-diesel::joinable!(habit_values -> habits (habit_id));
+diesel::joinable!(day_values -> options (value_id));
 diesel::joinable!(habits -> users (user_id));
+diesel::joinable!(options -> habits (habit_id));
 
-diesel::allow_tables_to_appear_in_same_query!(day_values, habit_values, habits, users,);
+diesel::allow_tables_to_appear_in_same_query!(day_values, habits, options, users,);

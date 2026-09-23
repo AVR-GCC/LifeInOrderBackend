@@ -106,7 +106,7 @@ pub struct VOption {
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
-#[diesel(table_name = crate::db::schema::habit_values)]
+#[diesel(table_name = crate::db::schema::options)]
 pub struct NewVOption {
     pub habit_id: i32,
     pub label: Option<String>,

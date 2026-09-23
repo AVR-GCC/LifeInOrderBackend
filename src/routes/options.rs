@@ -3,8 +3,8 @@ use core::result::Result;
 use diesel::prelude::*;
 
 use crate::db::models::{NewVOption, VOption};
-use crate::db::schema::habit_values::dsl::{
-    color as hv_color, habit_values, id as hv_id, label as hv_label, sequence as hv_sequence,
+use crate::db::schema::options::dsl::{
+    color as hv_color, options as options_table, id as hv_id, label as hv_label, sequence as hv_sequence,
 };
 use crate::utils::misc_types::Storage;
 
@@ -20,7 +20,7 @@ pub fn create_option(
         new_option.color.clone().unwrap_or("".to_string())
     );
 
-    let inserted = diesel::insert_into(habit_values)
+    let inserted = diesel::insert_into(options_table)
         .values(&new_option)
         .get_result::<VOption>(&mut store.db)
         .map_err(|e| {
@@ -43,7 +43,7 @@ pub fn update_option(
         option.color.clone().unwrap_or("".to_string())
     );
 
-    let inserted = diesel::update(habit_values)
+    let inserted = diesel::update(options_table)
         .filter(hv_id.eq(option.id))
         .set((
             hv_label.eq(option.label),
@@ -68,7 +68,7 @@ pub fn delete_option(
         "not yet", option_id
     );
 
-    let result = diesel::delete(habit_values.filter(hv_id.eq(option_id)))
+    let result = diesel::delete(options_table.filter(hv_id.eq(option_id)))
         .execute(&mut store.db)
         .map_err(|e| {
             println!("Delete error: {:?}", e);
@@ -87,7 +87,7 @@ pub async fn reorder_options(
         let _ = store.db
             .transaction(|db| {
                 for (index, option_id) in option_ids.iter().enumerate() {
-                    diesel::update(habit_values.filter(hv_id.eq(option_id)))
+                    diesel::update(options_table.filter(hv_id.eq(option_id)))
                         .set(hv_sequence.eq(index as i32 + 1))
                         .execute(db)?;
                 }

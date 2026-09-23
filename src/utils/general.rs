@@ -2,7 +2,7 @@ use crate::db::models::HabitType;
 use crate::db::schema::day_values::dsl::{
     date as dv_date, day_values, text as dv_text, value_id as dv_value_id,
 };
-use crate::db::schema::habit_values::dsl::{habit_id as hv_habit_id, habit_values, id as hv_id};
+use crate::db::schema::options::dsl::{habit_id as hv_habit_id, options as options_table, id as hv_id};
 use crate::db::schema::habits::dsl::{
     habit_type as uh_habit_type, id as uh_id, habits as habits_table, user_id as uh_user_id,
 };
@@ -161,7 +161,7 @@ pub async fn get_user_values_data(
     to_date: NaiveDate,
 ) -> Result<Vec<ValuesDataEntry>, actix_web::Error> {
     let value_data: Vec<ValuesDataEntry> = habits_table
-        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
+        .inner_join(options_table.on(hv_habit_id.eq(uh_id)))
         .inner_join(day_values.on(dv_value_id.eq(hv_id)))
         .filter(dv_date.ge(from_date))
         .filter(dv_date.lt(to_date))

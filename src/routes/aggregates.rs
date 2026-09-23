@@ -14,8 +14,8 @@ use crate::db::models::{
 use crate::db::schema::day_values::dsl::{
     date as dv_date, day_values, habit_id as dv_habit_id,
 };
-use crate::db::schema::habit_values::dsl::{
-    color as hv_color, created_at as hv_created_at, habit_id as hv_habit_id, habit_values,
+use crate::db::schema::options::dsl::{
+    color as hv_color, created_at as hv_created_at, habit_id as hv_habit_id, options as options_table,
     id as hv_id, label as hv_label, sequence as hv_sequence,
 };
 use crate::db::schema::habits::dsl::{
@@ -35,7 +35,7 @@ pub async fn get_extended_habits(
     user_id: i32,
 ) -> Result<Vec<ExtendedHabit>, actix_web::Error> {
     let habit_value = habits_table
-        .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
+        .inner_join(options_table.on(hv_habit_id.eq(uh_id)))
         .filter(uh_user_id.eq(user_id))
         .select((
             uh_id,
