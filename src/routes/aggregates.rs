@@ -11,8 +11,8 @@ use diesel::prelude::*;
 use crate::db::models::{
     Value, Habit, HabitType, User, VOption
 };
-use crate::db::schema::day_values::dsl::{
-    date as dv_date, day_values, habit_id as dv_habit_id,
+use crate::db::schema::values::dsl::{
+    date as dv_date, values as values_table, habit_id as dv_habit_id,
 };
 use crate::db::schema::options::dsl::{
     color as hv_color, created_at as hv_created_at, habit_id as hv_habit_id, options as options_table,
@@ -343,8 +343,8 @@ pub async fn get_backup(
     // Collect all habit ids
     let habit_ids: Vec<i32> = habits.iter().map(|h| h.habit.id).collect();
 
-    // Fetch all day_values for all of the user's habits
-    let all_day_values: Vec<Value> = day_values
+    // Fetch all values for all of the user's habits
+    let all_day_values: Vec<Value> = values_table
         .filter(dv_habit_id.eq_any(&habit_ids))
         .order((dv_date.asc(), dv_habit_id.asc()))
         .load::<Value>(&mut store.db)
@@ -381,7 +381,7 @@ pub async fn get_backup(
                 }).collect::<Vec<_>>(),
             })
         }).collect::<Vec<_>>(),
-        "day_values": all_day_values.iter().map(|dv| {
+        "values": all_day_values.iter().map(|dv| {
             serde_json::json!({
                 "id": dv.id,
                 "habit_id": dv.habit_id,

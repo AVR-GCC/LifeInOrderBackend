@@ -7,8 +7,8 @@ use diesel::dsl::now;
 use diesel::prelude::*;
 
 use crate::db::models::{NewValue, Value};
-use crate::db::schema::day_values::dsl::{
-    created_at as dv_created_at, date as dv_date, day_values, habit_id as dv_habit_id,
+use crate::db::schema::values::dsl::{
+    created_at as dv_created_at, date as dv_date, values as values_table, habit_id as dv_habit_id,
     number as dv_number, text as dv_text, value_id as dv_value_id,
 };
 use crate::utils::general::get_cache_key;
@@ -29,7 +29,7 @@ pub fn set_value(
         new_value.number.clone().unwrap_or(0)
     );
 
-    let inserted = diesel::insert_into(day_values)
+    let inserted = diesel::insert_into(values_table)
         .values(&new_value.clone())
         .on_conflict((dv_date, dv_habit_id))
         .do_update()

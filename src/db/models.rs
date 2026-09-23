@@ -126,7 +126,7 @@ pub struct Value {
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug, Clone)]
-#[diesel(table_name = crate::db::schema::day_values)]
+#[diesel(table_name = crate::db::schema::values)]
 pub struct NewValue {
     pub value_id: i32,
     pub habit_id: i32,

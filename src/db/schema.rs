@@ -7,18 +7,6 @@ pub mod sql_types {
 }
 
 diesel::table! {
-    day_values (id) {
-        id -> Int4,
-        value_id -> Int4,
-        habit_id -> Int4,
-        date -> Date,
-        text -> Nullable<Varchar>,
-        number -> Nullable<Int4>,
-        created_at -> Timestamp,
-    }
-}
-
-diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::HabitType;
 
@@ -53,9 +41,21 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(day_values -> habits (habit_id));
-diesel::joinable!(day_values -> options (value_id));
+diesel::table! {
+    values (id) {
+        id -> Int4,
+        value_id -> Int4,
+        habit_id -> Int4,
+        date -> Date,
+        text -> Nullable<Varchar>,
+        number -> Nullable<Int4>,
+        created_at -> Timestamp,
+    }
+}
+
 diesel::joinable!(habits -> users (user_id));
 diesel::joinable!(options -> habits (habit_id));
+diesel::joinable!(values -> habits (habit_id));
+diesel::joinable!(values -> options (value_id));
 
-diesel::allow_tables_to_appear_in_same_query!(day_values, habits, options, users,);
+diesel::allow_tables_to_appear_in_same_query!(habits, options, users, values,);
