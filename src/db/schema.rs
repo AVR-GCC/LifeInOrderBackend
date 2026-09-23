@@ -33,7 +33,7 @@ diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::HabitType;
 
-    user_habits (id) {
+    habits (id) {
         id -> Int4,
         user_id -> Int4,
         name -> Varchar,
@@ -54,8 +54,8 @@ diesel::table! {
 }
 
 diesel::joinable!(day_values -> habit_values (value_id));
-diesel::joinable!(day_values -> user_habits (habit_id));
-diesel::joinable!(habit_values -> user_habits (habit_id));
-diesel::joinable!(user_habits -> users (user_id));
+diesel::joinable!(day_values -> habits (habit_id));
+diesel::joinable!(habit_values -> habits (habit_id));
+diesel::joinable!(habits -> users (user_id));
 
-diesel::allow_tables_to_appear_in_same_query!(day_values, habit_values, user_habits, users,);
+diesel::allow_tables_to_appear_in_same_query!(day_values, habit_values, habits, users,);

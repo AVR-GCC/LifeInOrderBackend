@@ -86,7 +86,7 @@ pub struct Habit {
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
-#[diesel(table_name = crate::db::schema::user_habits)]
+#[diesel(table_name = crate::db::schema::habits)]
 pub struct NewHabit {
     pub user_id: i32,
     pub name: String,

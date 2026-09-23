@@ -2,9 +2,9 @@ use core::result::Result;
 
 use diesel::prelude::*;
 
-use crate::db::schema::user_habits::dsl::{
+use crate::db::schema::habits::dsl::{
     habit_type as uh_habit_type, id as uh_id, name as uh_name, sequence as uh_sequence,
-    user_habits, weight as uh_weight,
+    habits as habits_table, weight as uh_weight,
 };
 use crate::utils::misc_types::Storage;
 
@@ -24,7 +24,7 @@ pub fn create_habit(
         new_habit.habit_type
     );
 
-    let inserted = diesel::insert_into(user_habits)
+    let inserted = diesel::insert_into(habits_table)
         .values(&new_habit)
         .get_result::<Habit>(&mut store.db)
         .map_err(|e| {
@@ -46,7 +46,7 @@ pub fn update_habit(
         habit.name, habit.weight, habit.habit_type
     );
 
-    let inserted = diesel::update(user_habits)
+    let inserted = diesel::update(habits_table)
         .filter(uh_id.eq(habit.id))
         .set((
             uh_name.eq(habit.name),
@@ -73,7 +73,7 @@ pub fn delete_habit(
         "not yet", habit_id
     );
 
-    let result = diesel::delete(user_habits.filter(uh_id.eq(habit_id)))
+    let result = diesel::delete(habits_table.filter(uh_id.eq(habit_id)))
         .execute(&mut store.db)
         .map_err(|e| {
             println!("Delete error: {:?}", e);
@@ -92,7 +92,7 @@ pub async fn reorder_habits(
         let _ = store.db
             .transaction(|db| {
                 for (index, habit_id) in habit_ids.iter().enumerate() {
-                    diesel::update(user_habits.filter(uh_id.eq(habit_id)))
+                    diesel::update(habits_table.filter(uh_id.eq(habit_id)))
                         .set(uh_sequence.eq(index as i32 + 1))
                         .execute(db)?;
                 }

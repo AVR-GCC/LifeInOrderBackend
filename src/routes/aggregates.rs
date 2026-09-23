@@ -18,9 +18,9 @@ use crate::db::schema::habit_values::dsl::{
     color as hv_color, created_at as hv_created_at, habit_id as hv_habit_id, habit_values,
     id as hv_id, label as hv_label, sequence as hv_sequence,
 };
-use crate::db::schema::user_habits::dsl::{
+use crate::db::schema::habits::dsl::{
     created_at as uh_created_at, habit_type as uh_habit_type, id as uh_id, name as uh_name,
-    sequence as uh_sequence, user_habits, user_id as uh_user_id, weight as uh_weight,
+    sequence as uh_sequence, habits as habits_table, user_id as uh_user_id, weight as uh_weight,
 };
 use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, name as u_name, users,
@@ -34,7 +34,7 @@ pub async fn get_extended_habits(
     db: &mut PgConnection,
     user_id: i32,
 ) -> Result<Vec<ExtendedHabit>, actix_web::Error> {
-    let habit_value = user_habits
+    let habit_value = habits_table
         .inner_join(habit_values.on(hv_habit_id.eq(uh_id)))
         .filter(uh_user_id.eq(user_id))
         .select((
