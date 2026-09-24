@@ -23,7 +23,7 @@ use crate::db::schema::habits::dsl::{
     sequence as uh_sequence, habits as habits_table, user_id as uh_user_id, weight as uh_weight,
 };
 use crate::db::schema::users::dsl::{
-    created_at as u_created_at, email as u_email, id as u_id, name as u_name, users,
+    created_at as u_created_at, email as u_email, id as u_id, name as u_name, password_hash as u_password_hash, users,
 };
 use crate::utils::general::{
     create_period_image, get_cache_key, get_month_user_values_list, get_next_date, get_user_values_dates_map
@@ -330,7 +330,7 @@ pub async fn get_backup(
     // Fetch user info
     let user = users
         .filter(u_id.eq(user_id))
-        .select((u_id, u_name, u_email, u_created_at))
+        .select((u_id, u_name, u_email, u_password_hash, u_created_at))
         .first::<User>(&mut store.db)
         .map_err(|e| {
             println!("User query error: {:?}", e);

@@ -307,7 +307,7 @@ pub fn create_period_image(
                     .map(|v| &v.color)
                     .unwrap_or(&None),
                 Some(HabitDayValue::Text(_)) => &None,
-                None => &None,
+                Option::None => &None,
             };
 
             let rgb_color = parse_color(color);

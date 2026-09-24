@@ -17,8 +17,8 @@ const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
-use crate::db::models::{Habit, NewHabit, NewUser, NewVOption, NewValue, VOption, Value};
-use crate::routes::users::create_user;
+use crate::db::models::{CreateUser, Habit, LoginUser, NewHabit, NewVOption, NewValue, VOption, Value};
+use crate::routes::users::{create_user, login};
 use crate::utils::general::get_storage;
 use crate::utils::misc_types::{
     AppState, RouteParams, SocketRequest, SocketResponse, UserListResponse, ValuesOrImage, ZoomLevel
@@ -206,14 +206,25 @@ async fn ws_handler(
     Ok(response)
 }
 
-#[post("/users")]
-async fn create_user_route(
+#[post("/login")]
+async fn login_route(
     state: web::Data<AppState>,
-    req_body: web::Json<NewUser>,
+    req_body: web::Json<LoginUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let store = get_storage(state).expect("Failed to init storage");
-    let new_user = req_body.into_inner();
-    let inserted = create_user(store, new_user).expect("Failed to create user");
+    let login_user = req_body.into_inner();
+    let config = login(store, login_user.email, login_user.password).await?;
+    Ok(HttpResponse::Ok().json(config))
+}
+
+#[post("/signup")]
+async fn signup_route(
+    state: web::Data<AppState>,
+    req_body: web::Json<CreateUser>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let store = get_storage(state).expect("Failed to init storage");
+    let create_user_object = req_body.into_inner();
+    let inserted = create_user(store, create_user_object).expect("Failed to create user");
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -684,7 +695,8 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(app_state.clone()))
             .wrap(Logger::default())
-            .service(create_user_route)
+            .service(signup_route)
+            .service(login_route)
             .service(create_habit_route)
             .service(update_habit_route)
             .service(delete_habit_route)

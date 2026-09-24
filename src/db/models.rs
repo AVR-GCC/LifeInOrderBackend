@@ -19,6 +19,7 @@ pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
+    pub password_hash: Option<String>,
     pub created_at: NaiveDateTime,
 }
 
@@ -27,6 +28,20 @@ pub struct User {
 pub struct NewUser {
     pub name: String,
     pub email: String,
+    pub password_hash: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CreateUser {
+    pub name: String,
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct LoginUser {
+    pub email: String,
+    pub password: String,
 }
 
 #[derive(diesel_derive_enum::DbEnum, Debug, PartialEq, Deserialize, Serialize)]
