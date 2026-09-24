@@ -38,6 +38,8 @@ diesel::table! {
         name -> Varchar,
         email -> Varchar,
         created_at -> Timestamp,
+        #[max_length = 255]
+        password_hash -> Nullable<Varchar>,
     }
 }
 
