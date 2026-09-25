@@ -7,7 +7,9 @@ use crate::routes::values::set_value;
 use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web,
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use chrono::NaiveDate;
+use jsonwebtoken::{DecodingKey, EncodingKey};
 use std::collections::HashMap;
 use std::str::FromStr;
 use utils::misc_types::SequenceUpdateRequest;
@@ -18,10 +20,10 @@ use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{CreateUser, Habit, LoginUser, NewHabit, NewVOption, NewValue, VOption, Value};
-use crate::routes::users::{create_user, login};
+use crate::routes::users::{login, signup};
 use crate::utils::general::get_storage;
 use crate::utils::misc_types::{
-    AppState, RouteParams, SocketRequest, SocketResponse, UserListResponse, ValuesOrImage, ZoomLevel
+    AppState, ErrorResponse, RouteParams, SocketRequest, SocketResponse, UserListResponse, ValuesOrImage, ZoomLevel
 };
 
 mod db;
@@ -211,10 +213,20 @@ async fn login_route(
     state: web::Data<AppState>,
     req_body: web::Json<LoginUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
+    let store = get_storage(state.clone()).expect("Failed to init storage");
     let login_user = req_body.into_inner();
-    let config = login(store, login_user.email, login_user.password).await?;
-    Ok(HttpResponse::Ok().json(config))
+    let auth_res_opt = login(
+        store,
+        state.encoding_key.clone(),
+        login_user.email,
+        login_user.password
+    ).await;
+    match auth_res_opt {
+        Ok(auth_res) => Ok(HttpResponse::Ok().json(auth_res)),
+        Err(_) => Ok(HttpResponse::Unauthorized().json(ErrorResponse {
+            message: "Wrong email or password".to_string(),
+        }))
+    }
 }
 
 #[post("/signup")]
@@ -222,9 +234,10 @@ async fn signup_route(
     state: web::Data<AppState>,
     req_body: web::Json<CreateUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
+    // TODO: check email valid and not taken
+    let store = get_storage(state.clone()).expect("Failed to init storage");
     let create_user_object = req_body.into_inner();
-    let inserted = create_user(store, create_user_object).expect("Failed to create user");
+    let inserted = signup(store, state.encoding_key.clone(), create_user_object).await.expect("Failed to create user");
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -682,11 +695,19 @@ async fn main() -> std::io::Result<()> {
     println!("Migrations run - Connecting to redis");
     // cache
     let client = redis::Client::open(c.cache_url).expect("Failed to open cache client");
-    println!("Connected to redis - Creating AppState");
+    println!("Connected to redis - Aquiring JWT keys");
+
+    // JWT keys
+    let secret_bytes = BASE64.decode(&c.jwt_secret).unwrap();
+    let encoding_key = EncodingKey::from_secret(&secret_bytes);
+    let decoding_key = DecodingKey::from_secret(&secret_bytes);
+    println!("JWT keys aquired - Creating AppState");
 
     let app_state = AppState {
         db_pool: pool.clone(),
         redis_client: client,
+        encoding_key,
+        decoding_key,
     };
 
     println!("AppState created - Running server");

@@ -4,14 +4,15 @@ use eyre::WrapErr;
 use dotenv::dotenv;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct Config {
     pub database_url: String,
     pub cache_url: String,
     pub host: String,
     pub port: i32,
+    pub jwt_secret: String,
 }
-//Result<Config>
+
 impl Config {
     pub fn from_env() -> Result<Config> {
         dotenv().ok();
@@ -30,11 +31,15 @@ impl Config {
             .get("database_url")
             .context("Error: Database url not found")?;
         let cache_url = env.get("cache_url").context("Error: Cache url not found")?;
+        let jwt_secret = env
+            .get("jwt_secret")
+            .context("Error: JWT secret not found")?;
         Ok(Config {
             host,
             port,
             database_url,
             cache_url,
+            jwt_secret,
         })
     }
 }

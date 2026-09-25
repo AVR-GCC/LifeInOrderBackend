@@ -4,6 +4,7 @@ use chrono::NaiveDate;
 use core::fmt;
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
+use jsonwebtoken::{DecodingKey, EncodingKey};
 use redis::{FromRedisValue, ParsingError, RedisWrite, ToRedisArgs, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -170,10 +171,12 @@ pub struct CreateHabitRequest {
     pub habit_type: HabitType,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AppState {
     pub db_pool: Pool<ConnectionManager<PgConnection>>,
     pub redis_client: redis::Client,
+    pub encoding_key: EncodingKey,
+    pub decoding_key: DecodingKey,
 }
 
 pub struct Storage {
@@ -222,22 +225,27 @@ pub struct SocketResponse<T> {
     pub data: Option<T>,
 }
 
-// impl<T> SocketResponse<T> {
-//     /// Helper to construct a successful response
-//     pub fn success(id: impl Into<String>, data: T) -> Self {
-//         Self {
-//             id: id.into(),
-//             error: None,
-//             data: Some(data),
-//         }
-//     }
-//
-//     /// Helper to construct an error response
-//     pub fn error(id: impl Into<String>, error: impl Into<String>) -> Self {
-//         Self {
-//             id: id.into(),
-//             error: Some(error.into()),
-//             data: None,
-//         }
-//     }
-// }
+#[derive(Serialize)]
+pub struct ErrorResponse {
+    pub message: String
+}
+
+#[derive(Serialize)]
+pub struct AuthResponseTokensSection {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: u32,
+    pub refresh_token: String,
+}
+
+#[derive(Serialize)]
+pub struct Claims {
+    pub sub: i32,
+}
+
+#[derive(Serialize)]
+pub struct AuthResponse {
+    pub tokens: AuthResponseTokensSection,
+    pub user: Claims,
+    pub habits: Vec<ExtendedHabit>,
+}
