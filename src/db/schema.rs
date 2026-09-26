@@ -33,6 +33,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    refresh_tokens (id) {
+        id -> Int4,
+        user_id -> Int4,
+        token_hash -> Text,
+        family_id -> Text,
+        expires_at -> Timestamptz,
+        revoked_at -> Nullable<Timestamptz>,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     users (id) {
         id -> Int4,
         name -> Varchar,
@@ -57,7 +69,8 @@ diesel::table! {
 
 diesel::joinable!(habits -> users (user_id));
 diesel::joinable!(options -> habits (habit_id));
+diesel::joinable!(refresh_tokens -> users (user_id));
 diesel::joinable!(values -> habits (habit_id));
 diesel::joinable!(values -> options (value_id));
 
-diesel::allow_tables_to_appear_in_same_query!(habits, options, users, values,);
+diesel::allow_tables_to_appear_in_same_query!(habits, options, refresh_tokens, users, values,);

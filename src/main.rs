@@ -20,10 +20,10 @@ use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{CreateUser, Habit, LoginUser, NewHabit, NewVOption, NewValue, VOption, Value};
-use crate::routes::users::{login, signup};
+use crate::routes::users::{login, refresh, signup};
 use crate::utils::general::get_storage;
 use crate::utils::misc_types::{
-    AppState, ErrorResponse, RouteParams, SocketRequest, SocketResponse, UserListResponse, ValuesOrImage, ZoomLevel
+    AppState, ErrorResponse, RefreshTokenRequest, RouteParams, SocketRequest, SocketResponse, UserListResponse, ValuesOrImage, ZoomLevel
 };
 
 mod db;
@@ -238,6 +238,17 @@ async fn signup_route(
     let store = get_storage(state.clone()).expect("Failed to init storage");
     let create_user_object = req_body.into_inner();
     let inserted = signup(store, state.encoding_key.clone(), create_user_object).await.expect("Failed to create user");
+    Ok(HttpResponse::Ok().json(inserted))
+}
+
+#[post("/refresh")]
+async fn refresh_route(
+    state: web::Data<AppState>,
+    req_body: web::Json<RefreshTokenRequest>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let store = get_storage(state.clone()).expect("Failed to init storage");
+    let refresh_token_req = req_body.into_inner();
+    let inserted = refresh(store, state.encoding_key.clone(), refresh_token_req.refresh_token).await?;
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -718,6 +729,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default())
             .service(signup_route)
             .service(login_route)
+            .service(refresh_route)
             .service(create_habit_route)
             .service(update_habit_route)
             .service(delete_habit_route)

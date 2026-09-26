@@ -171,6 +171,11 @@ pub struct CreateHabitRequest {
     pub habit_type: HabitType,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RefreshTokenRequest {
+    pub refresh_token: String,
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub db_pool: Pool<ConnectionManager<PgConnection>>,
@@ -241,6 +246,8 @@ pub struct AuthResponseTokensSection {
 #[derive(Serialize)]
 pub struct Claims {
     pub sub: i32,
+    pub exp: usize,
+    pub iss: String
 }
 
 #[derive(Serialize)]

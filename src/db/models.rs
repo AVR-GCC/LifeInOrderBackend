@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime, DateTime, Utc};
 use diesel::backend::Backend;
 use diesel::deserialize::{self, FromSql};
 use diesel::pg::Pg;
@@ -148,4 +148,25 @@ pub struct NewValue {
     pub date: NaiveDate,
     pub text: Option<String>,
     pub number: Option<i32>,
+}
+
+#[derive(Queryable, Serialize, Debug)]
+pub struct RefreshToken {
+    pub id: i32,
+    pub user_id: i32,
+    pub token_hash: String,
+    pub family_id: String,
+    pub expires_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Insertable, Serialize, Deserialize, Debug, Clone)]
+#[diesel(table_name = crate::db::schema::refresh_tokens)]
+pub struct NewRefreshToken {
+    pub user_id: i32,
+    pub token_hash: String,
+    pub family_id: String,
+    pub expires_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
