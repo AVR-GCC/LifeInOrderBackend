@@ -32,6 +32,18 @@ pub fn hash_token(token: &str) -> String {
     format!("{:?}", hasher.finalize())
 }
 
+pub async fn logout(
+    mut store: Storage,
+    refresh_token: String
+) -> Result<(), actix_web::Error> {
+    let token_hash = hash_token(refresh_token.as_str());
+    let _ = diesel::update(refresh_tokens)
+        .filter(rt_token_hash.eq(token_hash.clone()))
+        .set(rt_revoked_at.eq(now))
+        .execute(&mut store.db);
+    Ok(())
+}
+
 pub fn generate_token() -> String {
     let mut bytes = [0u8; 32];
     rand::rng().fill_bytes(&mut bytes);

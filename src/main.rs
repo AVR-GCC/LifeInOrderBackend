@@ -252,6 +252,17 @@ async fn refresh_route(
     Ok(HttpResponse::Ok().json(inserted))
 }
 
+#[post("/logout")]
+async fn logout_route(
+    state: web::Data<AppState>,
+    req_body: web::Json<RefreshTokenRequest>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let store = get_storage(state.clone()).expect("Failed to init storage");
+    let logout_res = req_body.into_inner();
+    logout(store, logout_res.refresh_token).await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 #[post("/habits")]
 async fn create_habit_route(
     state: web::Data<AppState>,
@@ -727,6 +738,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(app_state.clone()))
             .wrap(Logger::default())
+            .service(logout_route)
             .service(signup_route)
             .service(login_route)
             .service(refresh_route)
