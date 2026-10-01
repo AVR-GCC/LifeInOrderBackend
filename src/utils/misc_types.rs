@@ -243,7 +243,7 @@ pub struct AuthResponseTokensSection {
     pub refresh_token: String,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Claims {
     pub sub: i32,
     pub exp: usize,
@@ -255,4 +255,9 @@ pub struct AuthResponse {
     pub tokens: AuthResponseTokensSection,
     pub user: Claims,
     pub habits: Vec<ExtendedHabit>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TokenQuery {
+    pub t: String
 }

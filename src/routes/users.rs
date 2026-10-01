@@ -7,7 +7,7 @@ use argon2::{
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use diesel::prelude::*;
 use diesel::dsl::now;
-use jsonwebtoken::{Header, encode, EncodingKey};
+use jsonwebtoken::{Header, encode, decode, EncodingKey, DecodingKey, Validation};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use crate::{
@@ -25,6 +25,15 @@ use crate::db::schema::refresh_tokens::dsl::{
     expires_at as rt_expires_at, revoked_at as rt_revoked_at, created_at as rt_created_at
 };
 use crate::utils::misc_types::Storage;
+
+pub fn verify_token(token: &str, decoding_key: &DecodingKey) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let data = decode::<Claims>(
+        token,
+        decoding_key,
+        &Validation::default(),
+    )?;
+    Ok(data.claims)
+}
 
 pub fn hash_token(token: &str) -> String {
     let mut hasher = Sha256::new();

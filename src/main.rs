@@ -1,5 +1,6 @@
 mod config;
 use crate::config::Config;
+use jsonwebtoken::{decode, DecodingKey, EncodingKey, Validation};
 use crate::routes::aggregates::{get_backup, get_extended_habits, get_list, get_list_socket};
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
 use crate::routes::options::{create_option, delete_option, reorder_options, update_option};
@@ -9,7 +10,6 @@ use actix_web::{
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use chrono::NaiveDate;
-use jsonwebtoken::{DecodingKey, EncodingKey};
 use std::collections::HashMap;
 use std::str::FromStr;
 use utils::misc_types::SequenceUpdateRequest;
@@ -20,10 +20,10 @@ use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{CreateUser, Habit, LoginUser, NewHabit, NewVOption, NewValue, VOption, Value};
-use crate::routes::users::{login, refresh, signup};
+use crate::routes::users::{login, logout, refresh, signup, verify_token};
 use crate::utils::general::get_storage;
 use crate::utils::misc_types::{
-    AppState, ErrorResponse, RefreshTokenRequest, RouteParams, SocketRequest, SocketResponse, UserListResponse, ValuesOrImage, ZoomLevel
+    AppState, ErrorResponse, RefreshTokenRequest, RouteParams, SocketRequest, SocketResponse, TokenQuery, UserListResponse, ValuesOrImage, ZoomLevel
 };
 
 mod db;
@@ -34,20 +34,23 @@ use futures_util::StreamExt;
 
 async fn ws_handler(
     req: HttpRequest,
+    query: web::Query<TokenQuery>,
     body: web::Payload,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
+    let claims = verify_token(&query.t, &state.decoding_key).expect("Connection refused");
+    let user_id = claims.sub;
+    println!("user_id: {:?}", user_id);
 
     actix_web::rt::spawn(async move {
         while let Some(Ok(msg)) = msg_stream.next().await {
             match msg {
                 Message::Text(text) => {
-                    println!("text {}", text);
                     let store = get_storage(state.clone()).expect("Failed to init storage");
-                    let user_id = 1;
-                    let req: SocketRequest = serde_json::from_str(text.to_string().as_str())
-                        .expect("Malformed socket request");
+                    let trimmed = text.trim_matches('\0').trim();
+                    let req: SocketRequest = serde_json::from_str(trimmed.to_string().as_str())
+                        .expect(format!("Malformed socket request: {}", text).as_str());
                     let ret = match req.action {
                         RouteParams::ListGet(get_list_req) => {
                             let data = get_list_socket(store, user_id, get_list_req.date, get_list_req.zoom, get_list_req.width).await.expect("Failed to get list");
