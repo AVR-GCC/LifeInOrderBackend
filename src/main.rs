@@ -1,29 +1,26 @@
 mod config;
 use crate::config::Config;
-use jsonwebtoken::{decode, DecodingKey, EncodingKey, Validation};
-use crate::routes::aggregates::{get_backup, get_extended_habits, get_list, get_list_socket};
+use jsonwebtoken::{DecodingKey, EncodingKey};
+use crate::routes::aggregates::{get_backup, get_list};
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
 use crate::routes::options::{create_option, delete_option, reorder_options, update_option};
 use crate::routes::values::set_value;
 use actix_web::{
-    App, HttpRequest, HttpResponse, HttpServer, delete, get, middleware::Logger, post, put, web,
+    App, HttpRequest, HttpResponse, HttpServer, get, middleware::Logger, post, web,
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use chrono::NaiveDate;
 use std::collections::HashMap;
-use std::str::FromStr;
-use utils::misc_types::SequenceUpdateRequest;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
-use crate::db::models::{CreateUser, Habit, LoginUser, NewHabit, NewVOption, NewValue, VOption, Value};
+use crate::db::models::{CreateUser, Habit, LoginUser, NewHabit, VOption, Value};
 use crate::routes::users::{login, logout, refresh, signup, verify_token};
 use crate::utils::general::get_storage;
 use crate::utils::misc_types::{
-    AppState, ErrorResponse, RefreshTokenRequest, RouteParams, SocketRequest, SocketResponse, TokenQuery, UserListResponse, ValuesOrImage, ZoomLevel
+    AppState, ErrorResponse, RefreshTokenRequest, RouteParams, SocketRequest, SocketResponse, TokenQuery, ValuesOrImage
 };
 
 mod db;
@@ -53,7 +50,7 @@ async fn ws_handler(
                         .expect(format!("Malformed socket request: {}", text).as_str());
                     let ret = match req.action {
                         RouteParams::ListGet(get_list_req) => {
-                            let data = get_list_socket(store, user_id, get_list_req.date, get_list_req.zoom, get_list_req.width).await.expect("Failed to get list");
+                            let data = get_list(store, user_id, get_list_req.date, get_list_req.zoom, get_list_req.width).await.expect("Failed to get list");
                             let str_data = match data {
                                 ValuesOrImage::Values(values_list) => {
                                     serde_json::to_string(&values_list).unwrap()
@@ -87,7 +84,7 @@ async fn ws_handler(
                                 error: None,
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket HabitPost {}", ans);
+                            println!("HabitPost {}", ans);
                             ans
                         }
                         RouteParams::HabitPut(habit) => {
@@ -99,7 +96,7 @@ async fn ws_handler(
                                 error: None,
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket HabitPut {}", ans);
+                            // println!("HabitPut {}", ans);
                             ans
                         }
                         RouteParams::HabitsReorder(payload) => {
@@ -111,7 +108,7 @@ async fn ws_handler(
                                 error: None,
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket HabitsReorder {}", ans);
+                            // println!("HabitsReorder {}", ans);
                             ans
                         }
                         RouteParams::HabitDelete(habit_id) => {
@@ -127,7 +124,7 @@ async fn ws_handler(
                                 },
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket HabitDelete {}", ans);
+                            // println!("HabitDelete {}", ans);
                             ans
                         }
                         RouteParams::OptionPost(new_option) => {
@@ -139,7 +136,7 @@ async fn ws_handler(
                                 error: None,
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket OptionPost {}", ans);
+                            // println!("OptionPost {}", ans);
                             ans
                         }
                         RouteParams::OptionPut(option) => {
@@ -151,7 +148,7 @@ async fn ws_handler(
                                 error: None,
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket OptionPut {}", ans);
+                            // println!("OptionPut {}", ans);
                             ans
                         }
                         RouteParams::OptionsReorder(payload) => {
@@ -163,7 +160,7 @@ async fn ws_handler(
                                 error: None,
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket OptionsReorder {}", ans);
+                            // println!("OptionsReorder {}", ans);
                             ans
                         }
                         RouteParams::OptionDelete(option_id) => {
@@ -179,7 +176,7 @@ async fn ws_handler(
                                 },
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket OptionDelete {}", ans);
+                            // println!("OptionDelete {}", ans);
                             ans
                         }
                         RouteParams::Values(new_value) => {
@@ -191,7 +188,7 @@ async fn ws_handler(
                                 error: None,
                             };
                             let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket Values {}", ans);
+                            // println!("Values {}", ans);
                             ans
                         }
                     };
@@ -264,151 +261,6 @@ async fn logout_route(
     let logout_res = req_body.into_inner();
     logout(store, logout_res.refresh_token).await?;
     Ok(HttpResponse::NoContent().finish())
-}
-
-#[post("/habits")]
-async fn create_habit_route(
-    state: web::Data<AppState>,
-    req_body: web::Json<NewHabit>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
-    let new_habit = req_body.into_inner();
-    let inserted = create_habit(store, new_habit).expect("Failed to create habit");
-    Ok(HttpResponse::Ok().json(inserted))
-}
-
-#[put("/habits")]
-async fn update_habit_route(
-    state: web::Data<AppState>,
-    req_body: web::Json<Habit>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
-    let new_habit = req_body.into_inner();
-    let inserted = update_habit(store, new_habit).expect("Failed to update habit");
-    Ok(HttpResponse::Ok().json(inserted))
-}
-
-#[delete("/habits/{id}")]
-async fn delete_habit_route(
-    state: web::Data<AppState>,
-    path_habit_id: web::Path<i32>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
-    let habit_id = path_habit_id.into_inner();
-    let result = delete_habit(store, habit_id).expect("Failed to delete habit");
-    if result == 0 {
-        return Ok(HttpResponse::NotFound().json("Habit not found"));
-    }
-    Ok(HttpResponse::Ok().json("Habit deleted"))
-}
-
-#[post("/habits/reorder")]
-async fn reorder_habits_route(
-    state: web::Data<AppState>,
-    req: web::Json<SequenceUpdateRequest>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
-    let habit_ids = req.into_inner().ordered_ids.clone();
-    let _result = reorder_habits(store, habit_ids).await.expect("Failed to reorder habits");
-    Ok(HttpResponse::Ok().json("Sequence updated"))
-}
-
-#[post("/options")]
-async fn create_option_route(
-    state: web::Data<AppState>,
-    req_body: web::Json<NewVOption>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
-    let new_option = req_body.into_inner();
-    let inserted = create_option(store, new_option).expect("Failed to create option");
-    Ok(HttpResponse::Ok().json(inserted))
-}
-
-#[put("/options")]
-async fn update_option_route(
-    state: web::Data<AppState>,
-    req_body: web::Json<VOption>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
-    let option = req_body.into_inner();
-    let inserted = update_option(store, option).expect("Failed to update option");
-    Ok(HttpResponse::Ok().json(inserted))
-}
-
-#[delete("/options/{id}")]
-async fn delete_option_route(
-    state: web::Data<AppState>,
-    path_option_id: web::Path<i32>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
-    let option_id = path_option_id.into_inner();
-    let result = delete_option(store, option_id).expect("Failed to delete option");
-    if result == 0 {
-        return Ok(HttpResponse::NotFound().json("Option not found"));
-    }
-    Ok(HttpResponse::Ok().json("Option deleted"))
-}
-
-#[post("/options/reorder")]
-async fn reorder_options_route(
-    state: web::Data<AppState>,
-    req: web::Json<SequenceUpdateRequest>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let option_ids = req.into_inner().ordered_ids.clone();
-    let store = get_storage(state).expect("Failed to init storage");
-    let _result = reorder_options(store, option_ids).await.expect("Failed to reorder options");
-    Ok(HttpResponse::Ok().json("Sequence updated"))
-}
-
-#[post("/values")]
-async fn set_value_route(
-    state: web::Data<AppState>,
-    req_body: web::Json<NewValue>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state).expect("Failed to init storage");
-    let user_id = 1;
-    let new_value = req_body.into_inner();
-    let inserted = set_value(store, new_value, user_id).expect("Failed to update option");
-    Ok(HttpResponse::Ok().json(inserted))
-}
-
-#[get("/users/{path_user_id}/config")]
-async fn get_config_route(
-    state: web::Data<AppState>,
-    path_user_id: web::Path<i32>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let inner_user_id = path_user_id.into_inner();
-    let mut store = get_storage(state).expect("Failed to init storage");
-    let config = get_extended_habits(&mut store.db, inner_user_id).await?;
-    Ok(HttpResponse::Ok().json(config))
-}
-
-#[get("/users/{path_user_id}/list")]
-async fn get_list_route(
-    state: web::Data<AppState>,
-    path_user_id: web::Path<i32>,
-    query: web::Query<std::collections::HashMap<String, String>>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let user_id = path_user_id.into_inner();
-    let store = get_storage(state).expect("Failed to init storage");
-
-    if let (Some(date), Some(zoom), Some(count)) =
-        (query.get("date"), query.get("zoom"), query.get("count"))
-    {
-        let date = NaiveDate::from_str(date).unwrap();
-        let count: u32 = u32::from_str(count).unwrap();
-        let zoom: ZoomLevel = zoom.parse().unwrap();
-        let width: i32 = query
-            .get("width")
-            .and_then(|w| w.parse().ok())
-            .unwrap_or(1080);
-        get_list(store, user_id, date, count, zoom, width).await
-    } else {
-        Ok(HttpResponse::Ok().json(UserListResponse {
-            dates: Vec::new(),
-            habits: Vec::new(),
-        }))
-    }
 }
 
 #[get("/users/{path_user_id}/backup")]
@@ -745,17 +597,6 @@ async fn main() -> std::io::Result<()> {
             .service(signup_route)
             .service(login_route)
             .service(refresh_route)
-            .service(create_habit_route)
-            .service(update_habit_route)
-            .service(delete_habit_route)
-            .service(reorder_habits_route)
-            .service(create_option_route)
-            .service(update_option_route)
-            .service(delete_option_route)
-            .service(reorder_options_route)
-            .service(set_value_route)
-            .service(get_list_route)
-            .service(get_config_route)
             .service(get_backup_route)
             .service(ping)
             .service(privacy_policy)

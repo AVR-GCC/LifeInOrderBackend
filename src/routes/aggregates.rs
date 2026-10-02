@@ -129,7 +129,7 @@ pub async fn get_extended_habits(
     Ok(habits)
 }
 
-pub async fn get_list_socket(
+pub async fn get_list(
     mut store: Storage,
     user_id: i32,
     date: NaiveDate,
@@ -229,94 +229,6 @@ pub async fn get_list_socket(
                     println!("Error generating visualization: {:?}", e);
                     Err(actix_web::error::ErrorInternalServerError(e))
                 }
-            }
-        }
-    }
-}
-
-pub async fn get_list(
-    mut store: Storage,
-    user_id: i32,
-    date: NaiveDate,
-    count: u32,
-    zoom: ZoomLevel,
-    width: i32,
-) -> Result<HttpResponse, actix_web::Error> {
-    let year = date.year();
-    let month = date.month();
-    let start_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
-    let (mut to_month, mut to_year) = (month, year);
-    for _ in 0..count {
-        (to_month, to_year) = get_next_date((to_month, to_year), zoom);
-    }
-    let end_date = NaiveDate::from_ymd_opt(to_year, to_month, 1).unwrap();
-
-    // dbg!(date);
-    // dbg!(start_date);
-    // dbg!(end_date);
-    let dates_map = get_user_values_dates_map(
-        &mut store.cache,
-        &mut store.db,
-        user_id,
-        Some(start_date),
-        Some(end_date),
-    )
-    .await?;
-
-    let habits = get_extended_habits(&mut store.db, user_id)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    if matches!(zoom, ZoomLevel::Day) {
-        let mut dates = Vec::new();
-        let (mut cur_month, mut cur_year) = (month, year);
-        for _ in 0..count {
-            let month_values = get_month_user_values_list(cur_month, cur_year, user_id, &dates_map);
-            dates.push(month_values);
-            (cur_month, cur_year) = get_next_date((cur_month, cur_year), zoom);
-        }
-        Ok(HttpResponse::Ok().json(dates))
-    } else {
-        let row_height = match zoom {
-            ZoomLevel::Quarter => 8,
-            ZoomLevel::Half => 4,
-            ZoomLevel::Year => 2,
-            ZoomLevel::TwoYear => 1,
-            _ => 1,
-        };
-        let mut dates = Vec::new();
-        let mut current_month = start_date.month();
-        let mut current_year = start_date.year();
-        let end_month = end_date.month();
-        let end_year = end_date.year();
-
-        while current_month != end_month || current_year != end_year {
-            let mut month_values = get_month_user_values_list(
-                current_month,
-                current_year,
-                user_id,
-                &dates_map,
-            );
-            dates.append(&mut month_values.days);
-            if current_month == 12 {
-                current_month = 1;
-                current_year += 1;
-            } else {
-                current_month += 1;
-            }
-        }
-        let habits = habits
-            .into_iter()
-            .filter(|habit| habit.habit.habit_type == HabitType::Color)
-            .collect();
-        let response = UserListResponse { dates, habits };
-        match create_period_image(response, width, row_height) {
-            Ok(webp_data) => Ok(HttpResponse::Ok()
-                .content_type("image/webp")
-                .body(webp_data)),
-            Err(e) => {
-                println!("Error generating visualization: {:?}", e);
-                Err(actix_web::error::ErrorInternalServerError(e))
             }
         }
     }
