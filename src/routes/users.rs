@@ -362,14 +362,14 @@ async fn initial_user_values(
         value_id: general_option.id,
         habit_id: general_habit.id,
         date: today.checked_sub_days(Days::new(1)).expect("Failed to derive date"),
-        text: Some("Meal-prepped, planned the coming workweek and reflected on the vacation.".to_string()),
+        text: Some("New York. Recovery day. Slept in, unpacked, grocery-shopped and meal-prepped. Started getting back into the normal routine.".to_string()),
         number: None
     };
     let day1_food_new_val = NewValue {
         value_id: food_option.id,
         habit_id: food_habit.id,
         date: today.checked_sub_days(Days::new(1)).expect("Failed to derive date"),
-        text: Some("Breakfast: eggs, avocado toast and fruit. Lunch: leftover chili. Dinner: baked salmon, rice and roasted vegetables. Snack: Greek yogurt and berries.".to_string()),
+        text: Some("Breakfast: oatmeal, banana and peanut butter. Lunch: turkey sandwich and apple. Dinner: salmon, rice and roasted vegetables. Snack: Greek yogurt and berries.".to_string()),
         number: None
     };
     let day1_alcohol_new_val = NewValue {
@@ -412,39 +412,39 @@ async fn initial_user_values(
         value_id: general_option.id,
         habit_id: general_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
-        text: Some("Slept well for the first time since vacation. Cleaned the apartment, cooked meals for the week and spent the afternoon outdoors.".to_string()),
+        text: Some("Slept late, spent the final day by the coast, drinking and smoking, then flew home overnight.".to_string()),
         number: None
     };
     let day2_food_new_val = NewValue {
         value_id: food_option.id,
         habit_id: food_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
-        text: Some("Breakfast: pancakes, strawberries and coffee. Lunch: tuna sandwich and fruit. Dinner: homemade chili with rice. Snack: popcorn.".to_string()),
+        text: Some("Breakfast: eggs, feta, tomatoes and bread. Lunch: pork souvlaki, pita and tzatziki. Airport: turkey sandwich.".to_string()),
         number: None
     };
     let day2_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
+        value_id: alcohol_bad_option.id,
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day2_tabacco_new_val = NewValue {
-        value_id: tabacco_good_option.id,
+        value_id: tabacco_bad_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day2_workout_new_val = NewValue {
-        value_id: workout_good_option.id,
+        value_id: workout_bad_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day2_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
+        value_id: location_travel_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
         text: None,
@@ -462,39 +462,39 @@ async fn initial_user_values(
         value_id: general_option.id,
         habit_id: general_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
-        text: Some("First Friday back. Went out for dinner but deliberately skipped alcohol because it had been associated with heavier smoking.".to_string()),
+        text: Some("Athens. Acropolis and central Athens during the day. Long walking day, followed by a relaxed evening near Monastiraki.".to_string()),
         number: None
     };
     let day3_food_new_val = NewValue {
         value_id: food_option.id,
         habit_id: food_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
-        text: Some("Breakfast: eggs and toast. Lunch: turkey wrap. Dinner: grilled chicken, roasted potatoes and salad. Dessert: cheesecake.".to_string()),
+        text: Some("Breakfast: Greek yogurt, honey and fruit. Lunch: Greek salad, feta and bread. Snack: iced coffee and pastry. Dinner: grilled fish, potatoes and vegetables. Dessert: gelato.".to_string()),
         number: None
     };
     let day3_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
+        value_id: alcohol_bad_option.id,
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day3_tabacco_new_val = NewValue {
-        value_id: tabacco_good_option.id,
+        value_id: tabacco_mid_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day3_workout_new_val = NewValue {
-        value_id: workout_bad_option.id,
+        value_id: workout_mid_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day3_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
+        value_id: location_athens_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
         text: None,
@@ -512,39 +512,39 @@ async fn initial_user_values(
         value_id: general_option.id,
         habit_id: general_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
-        text: Some("Productive day at home. Met a friend for coffee but avoided the usual smoking trigger.".to_string()),
+        text: Some("Slow morning after a late night, then flight to Athens. Walked around Plaka and had dinner with drinks.".to_string()),
         number: None
     };
     let day4_food_new_val = NewValue {
         value_id: food_option.id,
         habit_id: food_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
-        text: Some("Breakfast: oatmeal with banana. Lunch: lentil soup and bread. Dinner: pasta with tomato sauce, meatballs and salad. Snack: orange.".to_string()),
+        text: Some("Breakfast: yogurt, honey, walnuts and fruit. Airport: chicken sandwich. Dinner: chicken souvlaki, pita, tzatziki and salad. Dessert: baklava.".to_string()),
         number: None
     };
     let day4_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
+        value_id: alcohol_bad_option.id,
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day4_tabacco_new_val = NewValue {
-        value_id: tabacco_good_option.id,
+        value_id: tabacco_bad_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day4_workout_new_val = NewValue {
-        value_id: workout_mid_option.id,
+        value_id: workout_bad_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day4_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
+        value_id: location_athens_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
         text: None,
@@ -562,39 +562,39 @@ async fn initial_user_values(
         value_id: general_option.id,
         habit_id: general_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
-        text: Some("First genuinely normal day since returning. Full workday followed by a gym session.".to_string()),
+        text: Some("Full sightseeing day: Sultanahmet, Grand Bazaar and Bosphorus. Very active day followed by a social dinner.".to_string()),
         number: None
     };
     let day5_food_new_val = NewValue {
         value_id: food_option.id,
         habit_id: food_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
-        text: Some("Breakfast: yogurt, granola and berries. Lunch: chicken salad. Dinner: beef stir-fry with rice and vegetables. Snack: dark chocolate.".to_string()),
+        text: Some("Breakfast: menemen, bread, olives and tea. Lunch: lamb kebab, bulgur and salad. Snack: Turkish delight. Dinner: grilled sea bass, salad and bread. Dessert: künefe.".to_string()),
         number: None
     };
     let day5_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
+        value_id: alcohol_bad_option.id,
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day5_tabacco_new_val = NewValue {
-        value_id: tabacco_good_option.id,
+        value_id: tabacco_mid_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day5_workout_new_val = NewValue {
-        value_id: workout_good_option.id,
+        value_id: workout_mid_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day5_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
+        value_id: location_istanbul_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
         text: None,
@@ -612,14 +612,14 @@ async fn initial_user_values(
         value_id: general_option.id,
         habit_id: general_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
-        text: Some("Sleep improving. Returned to a normal workday and spent the evening cooking and organizing the apartment.".to_string()),
+        text: Some("Worked part of the morning, flew to Istanbul, checked into the hotel and had a late dinner.".to_string()),
         number: None
     };
     let day6_food_new_val = NewValue {
         value_id: food_option.id,
         habit_id: food_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
-        text: Some("Breakfast: eggs, toast and fruit. Lunch: leftover chicken and rice. Dinner: salmon, potatoes and green beans. Snack: almonds.".to_string()),
+        text: Some("Breakfast: oatmeal, banana and coffee. Airport: turkey sandwich and chips. Dinner: chicken döner, rice and salad. Snack: baklava.".to_string()),
         number: None
     };
     let day6_alcohol_new_val = NewValue {
@@ -630,21 +630,21 @@ async fn initial_user_values(
         number: None
     };
     let day6_tabacco_new_val = NewValue {
-        value_id: tabacco_good_option.id,
+        value_id: tabacco_mid_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day6_workout_new_val = NewValue {
-        value_id: workout_mid_option.id,
+        value_id: workout_bad_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day6_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
+        value_id: location_istanbul_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
         text: None,
@@ -662,14 +662,14 @@ async fn initial_user_values(
         value_id: general_option.id,
         habit_id: general_habit.id,
         date: today.checked_sub_days(Days::new(7)).expect("Failed to derive date"),
-        text: Some("Still jet-lagged. Worked from home but kept the workload light. Did laundry and grocery shopping in the evening.".to_string()),
+        text: Some("Normal workday at home. Cooked dinner and had a quiet evening.".to_string()),
         number: None
     };
     let day7_food_new_val = NewValue {
         value_id: food_option.id,
         habit_id: food_habit.id,
         date: today.checked_sub_days(Days::new(7)).expect("Failed to derive date"),
-        text: Some("Breakfast: oatmeal, banana and coffee. Lunch: turkey sandwich, apple. Dinner: chicken, rice and broccoli. Snack: yogurt.".to_string()),
+        text: Some("Breakfast: eggs, toast, coffee. Lunch: turkey sandwich, apple. Dinner: chicken, rice and broccoli. Snack: yogurt.".to_string()),
         number: None
     };
     let day7_alcohol_new_val = NewValue {
@@ -680,14 +680,14 @@ async fn initial_user_values(
         number: None
     };
     let day7_tabacco_new_val = NewValue {
-        value_id: tabacco_good_option.id,
+        value_id: tabacco_mid_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(7)).expect("Failed to derive date"),
         text: None,
         number: None
     };
     let day7_workout_new_val = NewValue {
-        value_id: workout_bad_option.id,
+        value_id: workout_good_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(7)).expect("Failed to derive date"),
         text: None,
@@ -706,706 +706,6 @@ async fn initial_user_values(
     let _ = set_value(store, day7_tabacco_new_val, user_id).expect("Failed to update value");
     let _ = set_value(store, day7_workout_new_val, user_id).expect("Failed to update value");
     let _ = set_value(store, day7_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 8
-    let day8_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(8)).expect("Failed to derive date"),
-        text: Some("Flew back to New York overnight. Exhausted after travel; unpacked and ordered an uncomplicated dinner at home.".to_string()),
-        number: None
-    };
-    let day8_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(8)).expect("Failed to derive date"),
-        text: Some("Breakfast: hotel eggs, bread and fruit. Airport: turkey sandwich. Dinner: chicken soup, bread and salad. Snack: crackers.".to_string()),
-        number: None
-    };
-    let day8_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(8)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day8_tabacco_new_val = NewValue {
-        value_id: tabacco_good_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(8)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day8_workout_new_val = NewValue {
-        value_id: workout_bad_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(8)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day8_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(8)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day8_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day8_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day8_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day8_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day8_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day8_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 9
-    let day9_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(9)).expect("Failed to derive date"),
-        text: Some("Final vacation day. Relaxed by the coast, wandered through Athens and had a long final dinner. Then went to the airport and took a flight back home".to_string()),
-        number: None
-    };
-    let day9_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(9)).expect("Failed to derive date"),
-        text: Some("Breakfast: eggs, feta, tomatoes and bread. Lunch: pork souvlaki, pita and tzatziki. Snack: pastry and coffee. Dinner: lamb, roasted vegetables, salad and bread. Dessert: baklava.".to_string()),
-        number: None
-    };
-    let day9_alcohol_new_val = NewValue {
-        value_id: alcohol_bad_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(9)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day9_tabacco_new_val = NewValue {
-        value_id: tabacco_bad_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(9)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day9_workout_new_val = NewValue {
-        value_id: workout_bad_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(9)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day9_location_new_val = NewValue {
-        value_id: location_travel_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(9)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day9_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day9_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day9_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day9_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day9_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day9_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 10
-    let day10_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(10)).expect("Failed to derive date"),
-        text: Some("Acropolis, Monastiraki and central Athens. Long day of sightseeing followed by dinner and drinks.".to_string()),
-        number: None
-    };
-    let day10_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(10)).expect("Failed to derive date"),
-        text: Some("Breakfast: Greek yogurt, honey and fruit. Lunch: Greek salad, feta and bread. Snack: iced coffee. Dinner: grilled fish, potatoes and vegetables. Dessert: gelato.".to_string()),
-        number: None
-    };
-    let day10_alcohol_new_val = NewValue {
-        value_id: alcohol_bad_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(10)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day10_tabacco_new_val = NewValue {
-        value_id: tabacco_mid_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(10)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day10_workout_new_val = NewValue {
-        value_id: workout_mid_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(10)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day10_location_new_val = NewValue {
-        value_id: location_athens_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(10)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day10_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day10_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day10_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day10_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day10_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day10_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 11
-    let day11_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(11)).expect("Failed to derive date"),
-        text: Some("Final Istanbul morning, then flew to Athens. Checked in and explored Plaka at night.".to_string()),
-        number: None
-    };
-    let day11_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(11)).expect("Failed to derive date"),
-        text: Some("Breakfast: yogurt, honey, walnuts and fruit. Airport: chicken sandwich. Dinner: chicken souvlaki, pita, tzatziki and salad. Dessert: baklava.".to_string()),
-        number: None
-    };
-    let day11_alcohol_new_val = NewValue {
-        value_id: alcohol_bad_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(11)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day11_tabacco_new_val = NewValue {
-        value_id: tabacco_bad_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(11)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day11_workout_new_val = NewValue {
-        value_id: workout_bad_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(11)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day11_location_new_val = NewValue {
-        value_id: location_athens_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(11)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day11_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day11_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day11_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day11_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day11_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day11_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 12
-    let day12_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(12)).expect("Failed to derive date"),
-        text: Some("Grand Bazaar and Spice Bazaar in the morning, Bosphorus cruise in the afternoon, lively dinner in the evening.".to_string()),
-        number: None
-    };
-    let day12_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(12)).expect("Failed to derive date"),
-        text: Some("Breakfast: menemen, bread, olives and tea. Lunch: lentil soup and lahmacun. Snack: roasted chestnuts. Dinner: grilled sea bass, salad and bread. Dessert: künefe.".to_string()),
-        number: None
-    };
-    let day12_alcohol_new_val = NewValue {
-        value_id: alcohol_bad_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(12)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day12_tabacco_new_val = NewValue {
-        value_id: tabacco_mid_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(12)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day12_workout_new_val = NewValue {
-        value_id: workout_mid_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(12)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day12_location_new_val = NewValue {
-        value_id: location_istanbul_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(12)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day12_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day12_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day12_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day12_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day12_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day12_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 13
-    let day13_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(13)).expect("Failed to derive date"),
-        text: Some("Full day exploring Sultanahmet: Hagia Sophia, Blue Mosque and surrounding streets.".to_string()),
-        number: None
-    };
-    let day13_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(13)).expect("Failed to derive date"),
-        text: Some("Breakfast: simit, cheese, olives, eggs and tea. Lunch: lamb kebab, bulgur and salad. Snack: Turkish delight. Dinner: pide, yogurt and grilled vegetables.".to_string()),
-        number: None
-    };
-    let day13_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(13)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day13_tabacco_new_val = NewValue {
-        value_id: tabacco_mid_bad_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(13)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day13_workout_new_val = NewValue {
-        value_id: workout_mid_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(13)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day13_location_new_val = NewValue {
-        value_id: location_istanbul_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(13)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day13_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day13_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day13_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day13_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day13_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day13_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 14
-    let day14_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(14)).expect("Failed to derive date"),
-        text: Some("Flew from New York to Istanbul. Arrived tired, checked into hotel and had a late dinner.".to_string()),
-        number: None
-    };
-    let day14_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(14)).expect("Failed to derive date"),
-        text: Some("Breakfast: eggs, toast, coffee. Airport: sandwich and chips. Dinner: chicken döner, rice and salad. Snack: baklava.".to_string()),
-        number: None
-    };
-    let day14_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(14)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day14_tabacco_new_val = NewValue {
-        value_id: tabacco_mid_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(14)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day14_workout_new_val = NewValue {
-        value_id: workout_bad_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(14)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day14_location_new_val = NewValue {
-        value_id: location_istanbul_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(14)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day14_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day14_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day14_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day14_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day14_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day14_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 15
-    let day15_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(15)).expect("Failed to derive date"),
-        text: Some("Quiet Sunday. Park walk, meal prep and family call.".to_string()),
-        number: None
-    };
-    let day15_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(15)).expect("Failed to derive date"),
-        text: Some("Breakfast: eggs and avocado toast. Lunch: turkey sandwich and fruit. Dinner: vegetable curry and rice. Snack: Greek yogurt.".to_string()),
-        number: None
-    };
-    let day15_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(15)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day15_tabacco_new_val = NewValue {
-        value_id: tabacco_good_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(15)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day15_workout_new_val = NewValue {
-        value_id: workout_good_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(15)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day15_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(15)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day15_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day15_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day15_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day15_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day15_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day15_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 16
-    let day16_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(16)).expect("Failed to derive date"),
-        text: Some("Slept late after Friday. Groceries, cleaning and cooking at home.".to_string()),
-        number: None
-    };
-    let day16_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(16)).expect("Failed to derive date"),
-        text: Some("Breakfast: pancakes and strawberries. Lunch: leftover pizza. Dinner: roast chicken, potatoes and carrots. Snack: ice cream.".to_string()),
-        number: None
-    };
-    let day16_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(16)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day16_tabacco_new_val = NewValue {
-        value_id: tabacco_mid_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(16)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day16_workout_new_val = NewValue {
-        value_id: workout_bad_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(16)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day16_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(16)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day16_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day16_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day16_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day16_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day16_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day16_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 17
-    let day17_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(17)).expect("Failed to derive date"),
-        text: Some("Finished work early and went out with friends for dinner.".to_string()),
-        number: None
-    };
-    let day17_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(17)).expect("Failed to derive date"),
-        text: Some("Breakfast: banana and coffee. Lunch: tuna sandwich. Dinner: pizza and Caesar salad. Dessert: cheesecake.".to_string()),
-        number: None
-    };
-    let day17_alcohol_new_val = NewValue {
-        value_id: alcohol_bad_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(17)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day17_tabacco_new_val = NewValue {
-        value_id: tabacco_bad_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(17)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day17_workout_new_val = NewValue {
-        value_id: workout_bad_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(17)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day17_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(17)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day17_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day17_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day17_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day17_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day17_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day17_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 18
-    let day18_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(18)).expect("Failed to derive date"),
-        text: Some("Productive workday followed by a relaxed evening reading.".to_string()),
-        number: None
-    };
-    let day18_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(18)).expect("Failed to derive date"),
-        text: Some("Breakfast: scrambled eggs, toast. Lunch: lentil soup and bread. Dinner: pasta, meatballs and salad. Snack: orange.".to_string()),
-        number: None
-    };
-    let day18_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(18)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day18_tabacco_new_val = NewValue {
-        value_id: tabacco_good_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(18)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day18_workout_new_val = NewValue {
-        value_id: workout_mid_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(18)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day18_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(18)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day18_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day18_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day18_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day18_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day18_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day18_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 19
-    let day19_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(19)).expect("Failed to derive date"),
-        text: Some("Stressful workday with several cigarette cravings. Cooked tacos for dinner.".to_string()),
-        number: None
-    };
-    let day19_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(19)).expect("Failed to derive date"),
-        text: Some("Breakfast: yogurt, granola, berries. Lunch: chicken wrap. Dinner: beef tacos, avocado, tomato and lettuce. Snack: popcorn.".to_string()),
-        number: None
-    };
-    let day19_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(19)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day19_tabacco_new_val = NewValue {
-        value_id: tabacco_mid_bad_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(19)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day19_workout_new_val = NewValue {
-        value_id: workout_good_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(19)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day19_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(19)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day19_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day19_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day19_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day19_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day19_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day19_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 20
-    let day20_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(20)).expect("Failed to derive date"),
-        text: Some("Worked from home. Took a long walk at lunch and had a quiet evening.".to_string()),
-        number: None
-    };
-    let day20_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(20)).expect("Failed to derive date"),
-        text: Some("Breakfast: oatmeal, banana, peanut butter. Lunch: leftover chicken and rice. Dinner: salmon, potatoes, green beans. Snack: almonds.".to_string()),
-        number: None
-    };
-    let day20_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(20)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day20_tabacco_new_val = NewValue {
-        value_id: tabacco_mid_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(20)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day20_workout_new_val = NewValue {
-        value_id: workout_mid_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(20)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day20_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(20)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day20_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day20_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day20_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day20_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day20_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day20_location_new_val, user_id).expect("Failed to update value");
-
-    // Day 21
-    let day21_general_new_val = NewValue {
-        value_id: general_option.id,
-        habit_id: general_habit.id,
-        date: today.checked_sub_days(Days::new(21)).expect("Failed to derive date"),
-        text: Some("Normal workday at home. Cooked dinner and watched TV.".to_string()),
-        number: None
-    };
-    let day21_food_new_val = NewValue {
-        value_id: food_option.id,
-        habit_id: food_habit.id,
-        date: today.checked_sub_days(Days::new(21)).expect("Failed to derive date"),
-        text: Some("Breakfast: eggs, toast, coffee. Lunch: turkey sandwich, apple. Dinner: chicken, rice, broccoli. Snack: yogurt.".to_string()),
-        number: None
-    };
-    let day21_alcohol_new_val = NewValue {
-        value_id: alcohol_good_option.id,
-        habit_id: alcohol_habit.id,
-        date: today.checked_sub_days(Days::new(21)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day21_tabacco_new_val = NewValue {
-        value_id: tabacco_mid_bad_option.id,
-        habit_id: tabacco_habit.id,
-        date: today.checked_sub_days(Days::new(21)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day21_workout_new_val = NewValue {
-        value_id: workout_good_option.id,
-        habit_id: workout_habit.id,
-        date: today.checked_sub_days(Days::new(21)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let day21_location_new_val = NewValue {
-        value_id: location_new_york_option.id,
-        habit_id: location_habit.id,
-        date: today.checked_sub_days(Days::new(21)).expect("Failed to derive date"),
-        text: None,
-        number: None
-    };
-    let _ = set_value(store, day21_general_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day21_food_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day21_alcohol_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day21_tabacco_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day21_workout_new_val, user_id).expect("Failed to update value");
-    let _ = set_value(store, day21_location_new_val, user_id).expect("Failed to update value");
     Ok(())
 }
 
