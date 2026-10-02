@@ -44,7 +44,7 @@ async fn ws_handler(
         while let Some(Ok(msg)) = msg_stream.next().await {
             match msg {
                 Message::Text(text) => {
-                    let store = get_storage(state.clone()).expect("Failed to init storage");
+                    let mut store = get_storage(state.clone()).expect("Failed to init storage");
                     let trimmed = text.trim_matches('\0').trim();
                     let req: SocketRequest = serde_json::from_str(trimmed.to_string().as_str())
                         .expect(format!("Malformed socket request: {}", text).as_str());
@@ -76,7 +76,7 @@ async fn ws_handler(
                                 sequence: new_habit_req.sequence,
                                 habit_type: new_habit_req.habit_type,
                             };
-                            let inserted = create_habit(store, new_habit).expect("Failed to update habit");
+                            let inserted = create_habit(&mut store, new_habit).expect("Failed to update habit");
                             // let ret = format!("{:?}", inserted);
                             let res = SocketResponse::<Habit> {
                                 id: req.id,
@@ -88,7 +88,7 @@ async fn ws_handler(
                             ans
                         }
                         RouteParams::HabitPut(habit) => {
-                            let inserted = update_habit(store, habit).expect("Failed to update habit");
+                            let inserted = update_habit(&mut store, habit).expect("Failed to update habit");
                             // let ret = format!("{:?}", inserted);
                             let res = SocketResponse::<Habit> {
                                 id: req.id,
@@ -100,7 +100,7 @@ async fn ws_handler(
                             ans
                         }
                         RouteParams::HabitsReorder(payload) => {
-                            let _result = reorder_habits(store, payload.ordered_ids).await.expect("Failed to reorder habits");
+                            let _result = reorder_habits(&mut store, payload.ordered_ids).await.expect("Failed to reorder habits");
                             // let ret = format!("{:?}", inserted);
                             let res = SocketResponse::<bool> {
                                 id: req.id,
@@ -112,7 +112,7 @@ async fn ws_handler(
                             ans
                         }
                         RouteParams::HabitDelete(habit_id) => {
-                            let result = delete_habit(store, habit_id).expect("Failed to delete habit");
+                            let result = delete_habit(&mut store, habit_id).expect("Failed to delete habit");
                             // let ret = format!("{:?}", inserted);
                             let res = SocketResponse::<bool> {
                                 id: req.id,
@@ -128,7 +128,7 @@ async fn ws_handler(
                             ans
                         }
                         RouteParams::OptionPost(new_option) => {
-                            let inserted = create_option(store, new_option).expect("Failed to update option");
+                            let inserted = create_option(&mut store, new_option).expect("Failed to update option");
                             // let ret = format!("{:?}", inserted);
                             let res = SocketResponse::<VOption> {
                                 id: req.id,
@@ -140,7 +140,7 @@ async fn ws_handler(
                             ans
                         }
                         RouteParams::OptionPut(option) => {
-                            let inserted = update_option(store, option).expect("Failed to update option");
+                            let inserted = update_option(&mut store, option).expect("Failed to update option");
                             // let ret = format!("{:?}", inserted);
                             let res = SocketResponse::<VOption> {
                                 id: req.id,
@@ -152,7 +152,7 @@ async fn ws_handler(
                             ans
                         }
                         RouteParams::OptionsReorder(payload) => {
-                            let _result = reorder_options(store, payload.ordered_ids).await.expect("Failed to reorder options");
+                            let _result = reorder_options(&mut store, payload.ordered_ids).await.expect("Failed to reorder options");
                             // let ret = format!("{:?}", inserted);
                             let res = SocketResponse::<bool> {
                                 id: req.id,
@@ -164,7 +164,7 @@ async fn ws_handler(
                             ans
                         }
                         RouteParams::OptionDelete(option_id) => {
-                            let result = delete_option(store, option_id).expect("Failed to delete option");
+                            let result = delete_option(&mut store, option_id).expect("Failed to delete option");
                             // let ret = format!("{:?}", inserted);
                             let res = SocketResponse::<bool> {
                                 id: req.id,
@@ -180,7 +180,7 @@ async fn ws_handler(
                             ans
                         }
                         RouteParams::Values(new_value) => {
-                            let inserted = set_value(store, new_value, user_id).expect("Failed to update option");
+                            let inserted = set_value(&mut store, new_value, user_id).expect("Failed to update option");
                             // let ans = format!("{:?}", inserted);
                             let res = SocketResponse::<Value> {
                                 id: req.id,
@@ -213,10 +213,10 @@ async fn login_route(
     state: web::Data<AppState>,
     req_body: web::Json<LoginUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state.clone()).expect("Failed to init storage");
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let login_user = req_body.into_inner();
     let auth_res_opt = login(
-        store,
+        &mut store,
         state.encoding_key.clone(),
         login_user.email,
         login_user.password
@@ -235,9 +235,9 @@ async fn signup_route(
     req_body: web::Json<CreateUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
     // TODO: check email valid and not taken
-    let store = get_storage(state.clone()).expect("Failed to init storage");
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let create_user_object = req_body.into_inner();
-    let inserted = signup(store, state.encoding_key.clone(), create_user_object).await.expect("Failed to create user");
+    let inserted = signup(&mut store, state.encoding_key.clone(), create_user_object).await.expect("Failed to create user");
     Ok(HttpResponse::Ok().json(inserted))
 }
 
@@ -246,9 +246,9 @@ async fn refresh_route(
     state: web::Data<AppState>,
     req_body: web::Json<RefreshTokenRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state.clone()).expect("Failed to init storage");
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let refresh_token_req = req_body.into_inner();
-    let inserted = refresh(store, state.encoding_key.clone(), refresh_token_req.refresh_token).await?;
+    let inserted = refresh(&mut store, state.encoding_key.clone(), refresh_token_req.refresh_token).await?;
     Ok(HttpResponse::Ok().json(inserted))
 }
 

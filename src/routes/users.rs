@@ -60,7 +60,7 @@ pub fn generate_token() -> String {
 }
 
 pub async fn auth_response(
-    mut store: Storage,
+    store: &mut Storage,
     encoding_key: EncodingKey,
     sub: i32,
     family_id: Option<String>
@@ -110,7 +110,7 @@ pub async fn auth_response(
 }
 
 pub async fn refresh(
-    mut store: Storage,
+    store: &mut Storage,
     encoding_key: EncodingKey,
     refresh_token: String
 ) -> Result<AuthResponse, actix_web::Error> {
@@ -155,7 +155,7 @@ fn confirm_password(candidate: String, hash: String) -> Result<bool, actix_web::
 }
 
 pub async fn login(
-    mut store: Storage,
+    store: &mut Storage,
     encoding_key: EncodingKey,
     email: String,
     password: String,
@@ -194,7 +194,7 @@ pub async fn login(
 }
 
 pub async fn signup(
-    mut store: Storage,
+    store: &mut Storage,
     encoding_key: EncodingKey,
     create_user_object: CreateUser,
 ) -> Result<AuthResponse, actix_web::Error> {

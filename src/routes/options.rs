@@ -8,10 +8,8 @@ use crate::db::schema::options::dsl::{
 };
 use crate::utils::misc_types::Storage;
 
-use actix_web::web;
-
 pub fn create_option(
-    mut store: Storage,
+    store: &mut Storage,
     new_option: NewVOption,
 ) -> Result<VOption, actix_web::Error> {
     println!(
@@ -34,7 +32,7 @@ pub fn create_option(
 }
 
 pub fn update_option(
-    mut store: Storage,
+    store: &mut Storage,
     option: VOption
 ) -> Result<VOption, actix_web::Error> {
     println!(
@@ -60,7 +58,7 @@ pub fn update_option(
 }
 
 pub fn delete_option(
-    mut store: Storage,
+    store: &mut Storage,
     option_id: i32
 ) -> Result<usize, actix_web::Error> {
     println!(
@@ -79,25 +77,21 @@ pub fn delete_option(
 }
 
 pub async fn reorder_options(
-    mut store: Storage,
+    store: &mut Storage,
     option_ids: Vec<i32>,
 ) -> Result<(), actix_web::Error> {
-    let _result: Result<_, actix_web::Error> = Ok(web::block(move || {
-
-        let _ = store.db
-            .transaction(|db| {
-                for (index, option_id) in option_ids.iter().enumerate() {
-                    diesel::update(options_table.filter(hv_id.eq(option_id)))
-                        .set(hv_sequence.eq(index as i32 + 1))
-                        .execute(db)?;
-                }
-                diesel::result::QueryResult::Ok(())
-            })
-            .map_err(|e| {
-                println!("Pool error: {:?}", e);
-                actix_web::error::ErrorInternalServerError(e)
-            });
-    })
-    .await);
+    let _ = store.db
+        .transaction(|db| {
+            for (index, option_id) in option_ids.iter().enumerate() {
+                diesel::update(options_table.filter(hv_id.eq(option_id)))
+                    .set(hv_sequence.eq(index as i32 + 1))
+                    .execute(db)?;
+            }
+            diesel::result::QueryResult::Ok(())
+        })
+        .map_err(|e| {
+            println!("Pool error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        });
     Ok(())
 }

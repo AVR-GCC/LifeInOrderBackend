@@ -9,10 +9,9 @@ use crate::db::schema::habits::dsl::{
 use crate::utils::misc_types::Storage;
 
 use crate::db::models::{Habit, NewHabit};
-use actix_web::web;
 
 pub fn create_habit(
-    mut store: Storage,
+    store: &mut Storage,
     new_habit: NewHabit
 ) -> Result<Habit, actix_web::Error> {
     println!(
@@ -38,7 +37,7 @@ pub fn create_habit(
 }
 
 pub fn update_habit(
-    mut store: Storage,
+    store: &mut Storage,
     habit: Habit
 ) -> Result<Habit, actix_web::Error> {
     println!(
@@ -65,7 +64,7 @@ pub fn update_habit(
 }
 
 pub fn delete_habit(
-    mut store: Storage,
+    store: &mut Storage,
     habit_id: i32
 ) -> Result<usize, actix_web::Error> {
     println!(
@@ -84,25 +83,21 @@ pub fn delete_habit(
 }
 
 pub async fn reorder_habits(
-    mut store: Storage,
+    store: &mut Storage,
     habit_ids: Vec<i32>,
 ) -> Result<(), actix_web::Error> {
-    let _result: Result<_, actix_web::Error> = Ok(web::block(move || {
-
-        let _ = store.db
-            .transaction(|db| {
-                for (index, habit_id) in habit_ids.iter().enumerate() {
-                    diesel::update(habits_table.filter(uh_id.eq(habit_id)))
-                        .set(uh_sequence.eq(index as i32 + 1))
-                        .execute(db)?;
-                }
-                diesel::result::QueryResult::Ok(())
-            })
-            .map_err(|e| {
-                println!("Pool error: {:?}", e);
-                actix_web::error::ErrorInternalServerError(e)
-            });
-    })
-    .await);
+    let _ = store.db
+        .transaction(|db| {
+            for (index, habit_id) in habit_ids.iter().enumerate() {
+                diesel::update(habits_table.filter(uh_id.eq(habit_id)))
+                    .set(uh_sequence.eq(index as i32 + 1))
+                    .execute(db)?;
+            }
+            diesel::result::QueryResult::Ok(())
+        })
+        .map_err(|e| {
+            println!("Pool error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        });
     Ok(())
 }

@@ -16,7 +16,7 @@ use crate::utils::misc_types::ZoomLevel;
 use redis::Commands;
 
 pub fn set_value(
-    mut store: Storage,
+    store: &mut Storage,
     new_value: NewValue,
     user_id: i32,
 ) -> Result<Value, actix_web::Error> {
