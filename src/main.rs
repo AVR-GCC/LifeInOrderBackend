@@ -16,7 +16,7 @@ const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
-use crate::db::models::{CreateUser, Habit, LoginUser, NewHabit, VOption, Value};
+use crate::db::models::{Habit, LoginUser, NewHabit, VOption, Value};
 use crate::routes::users::{login, logout, refresh, signup, verify_token};
 use crate::utils::general::get_storage;
 use crate::utils::misc_types::{
@@ -232,12 +232,12 @@ async fn login_route(
 #[post("/signup")]
 async fn signup_route(
     state: web::Data<AppState>,
-    req_body: web::Json<CreateUser>,
+    req_body: web::Json<LoginUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
     // TODO: check email valid and not taken
     let mut store = get_storage(state.clone()).expect("Failed to init storage");
-    let create_user_object = req_body.into_inner();
-    let inserted = signup(&mut store, state.encoding_key.clone(), create_user_object).await.expect("Failed to create user");
+    let login_user_object = req_body.into_inner();
+    let inserted = signup(&mut store, state.encoding_key.clone(), login_user_object).await.expect("Failed to create user");
     Ok(HttpResponse::Ok().json(inserted))
 }
 

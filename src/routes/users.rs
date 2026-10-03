@@ -11,12 +11,12 @@ use jsonwebtoken::{Header, encode, decode, EncodingKey, DecodingKey, Validation}
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use crate::{
-    db::models::{CreateUser, HabitType, NewHabit, NewRefreshToken, NewUser, NewVOption, NewValue, RefreshToken, User},
+    db::models::{HabitType, LoginUser, NewHabit, NewRefreshToken, NewUser, NewVOption, NewValue, RefreshToken, User},
     routes::{aggregates::get_extended_habits, habits::create_habit, options::create_option, values::set_value},
     utils::misc_types::{AuthResponse, AuthResponseTokensSection, Claims},
 };
 use crate::db::schema::users::dsl::{
-    created_at as u_created_at, email as u_email, id as u_id, name as u_name,
+    created_at as u_created_at, email as u_email, id as u_id,
     password_hash as u_password_hash, users,
 };
 
@@ -327,7 +327,7 @@ async fn initial_user_values(
         habit_id: location_habit.id,
         label: Some("Istanbul".to_string()),
         sequence: 3,
-        color: Some("#10b981".to_string())
+        color: Some("#d946ef".to_string())
     };
     let location_new_travel_option = NewVOption {
         habit_id: location_habit.id,
@@ -712,23 +712,22 @@ async fn initial_user_values(
 pub async fn signup(
     store: &mut Storage,
     encoding_key: EncodingKey,
-    create_user_object: CreateUser,
+    login_user_object: LoginUser,
 ) -> Result<AuthResponse, actix_web::Error> {
-    println!("Creating user: {:?}", create_user_object);
+    println!("Creating user: {:?}", login_user_object);
     let argon2 = Argon2::default();
     let password_hash = argon2
-        .hash_password(create_user_object.password.as_bytes())
+        .hash_password(login_user_object.password.as_bytes())
         .map_err(actix_web::error::ErrorInternalServerError)?
         .to_string();
     let new_user = NewUser {
-        name: create_user_object.name,
-        email: create_user_object.email,
-        password_hash: password_hash,
+        email: login_user_object.email,
+        password_hash,
     };
 
     let inserted = diesel::insert_into(users)
         .values(&new_user)
-        .returning((u_id, u_name, u_email, u_password_hash, u_created_at))
+        .returning((u_id, u_email, u_password_hash, u_created_at))
         .get_result::<User>(&mut store.db)
         .map_err(actix_web::error::ErrorInternalServerError)?;
 

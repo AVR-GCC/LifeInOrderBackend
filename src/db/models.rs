@@ -17,7 +17,6 @@ use std::io::Write;
 #[derive(Queryable, Serialize, Debug)]
 pub struct User {
     pub id: i32,
-    pub name: String,
     pub email: String,
     pub password_hash: Option<String>,
     pub created_at: NaiveDateTime,
@@ -26,16 +25,8 @@ pub struct User {
 #[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::users)]
 pub struct NewUser {
-    pub name: String,
     pub email: String,
     pub password_hash: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct CreateUser {
-    pub name: String,
-    pub email: String,
-    pub password: String,
 }
 
 #[derive(Deserialize, Debug)]
