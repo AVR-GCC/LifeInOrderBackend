@@ -26,7 +26,7 @@ use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, password_hash as u_password_hash, users,
 };
 use crate::utils::general::{
-    create_period_image, get_cache_key, get_month_user_values_list, get_next_date, get_user_values_dates_map
+    create_period_image, get_data_cache_key, get_month_user_values_list, get_next_date, get_user_values_dates_map
 };
 use crate::utils::misc_types::{DateRange, ExtendedHabit, PeriodImageStruct, Storage, UserListResponse, ValuesOrImage, ZoomLevel};
 
@@ -164,7 +164,7 @@ pub async fn get_list(
         let month_values = get_month_user_values_list(month, year, user_id, &dates_map);
         Ok(ValuesOrImage::Values(month_values))
     } else {
-        let key = get_cache_key(user_id, year, month, zoom);
+        let key = get_data_cache_key(user_id, year, month, zoom);
         let value_opt: Option<String> = store.cache.get(&key).unwrap();
         if let Some(cache_value) = value_opt {
             let period_image_struct = PeriodImageStruct { range, image: cache_value, zoom };

@@ -72,7 +72,7 @@ pub fn fill_dates_list(
     dates
 }
 
-pub fn get_cache_key(user_id: i32, year: i32, month: u32, zoom: ZoomLevel) -> String {
+pub fn get_data_cache_key(user_id: i32, year: i32, month: u32, zoom: ZoomLevel) -> String {
     let (cache_year, cache_month) = match zoom {
         ZoomLevel::Day => (year, month),
         ZoomLevel::Quarter => {
@@ -103,7 +103,7 @@ pub async fn get_day_level_cache_data(
     year: i32,
     month: u32,
 ) -> Option<DateValuesMap> {
-    let key = get_cache_key(user_id, year, month, ZoomLevel::Day);
+    let key = get_data_cache_key(user_id, year, month, ZoomLevel::Day);
     let value: Option<String> = cache.get(key).unwrap();
     value.and_then(|v| serde_json::from_str(&v).ok())
 }
@@ -187,7 +187,7 @@ pub fn values_data_into_map(
         let month = date.month();
         let year = date.year();
         let date_str = date.to_string();
-        let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
+        let cache_key = get_data_cache_key(user_id, year, month, ZoomLevel::Day);
         let value = if habit_type == HabitType::Text {
             HabitDayValue::Text(text.unwrap_or_default())
         } else {

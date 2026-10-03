@@ -11,7 +11,7 @@ use crate::db::schema::values::dsl::{
     created_at as dv_created_at, date as dv_date, values as values_table, habit_id as dv_habit_id,
     number as dv_number, text as dv_text, value_id as dv_value_id,
 };
-use crate::utils::general::get_cache_key;
+use crate::utils::general::get_data_cache_key;
 use crate::utils::misc_types::ZoomLevel;
 use redis::Commands;
 
@@ -44,11 +44,11 @@ pub fn set_value(
 
     let year = new_value.date.year();
     let month = new_value.date.month();
-    let cache_key = get_cache_key(user_id, year, month, ZoomLevel::Day);
+    let cache_key = get_data_cache_key(user_id, year, month, ZoomLevel::Day);
     let _ = store.cache.del::<String, usize>(cache_key);
     let keys: Vec<String> = ZoomLevel::ALL
         .iter()
-        .map(|zoom| get_cache_key(user_id, year, month, *zoom))
+        .map(|zoom| get_data_cache_key(user_id, year, month, *zoom))
         .collect();
     for key in &keys {
         let _ = store.cache.del::<String, usize>(key.to_string());
