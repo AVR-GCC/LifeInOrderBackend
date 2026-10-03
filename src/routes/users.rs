@@ -630,7 +630,7 @@ async fn initial_user_values(
         number: None
     };
     let day6_tabacco_new_val = NewValue {
-        value_id: tabacco_mid_option.id,
+        value_id: tabacco_mid_bad_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
         text: None,
