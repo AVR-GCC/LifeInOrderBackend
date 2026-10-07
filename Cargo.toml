@@ -33,4 +33,3 @@ rand = "0.10.3"
 sha2 = "0.11.0"
 postmark = { version = "2.0.1", features = ["reqwest"] }
 reqwest = "0.13.5"
-actix-files = "0.7.0"

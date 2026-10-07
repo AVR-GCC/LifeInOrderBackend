@@ -1,8 +1,6 @@
 mod config;
 use crate::config::Config;
 use jsonwebtoken::{DecodingKey, EncodingKey};
-use actix_files::NamedFile;
-use std::path::PathBuf;
 use crate::routes::aggregates::{get_backup, get_list};
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
 use crate::routes::options::{create_option, delete_option, reorder_options, update_option};
@@ -289,10 +287,15 @@ async fn privacy_policy() -> Result<HttpResponse, actix_web::Error> {
         .body(html))
 
 }
-#[get("/logo.png")]
-async fn serve_logo() -> Result<NamedFile, actix_web::Error> {
-    let path: PathBuf = "./static/logo.png".into();
-    Ok(NamedFile::open(path)?)
+
+#[get("/static/logo.png")]
+async fn serve_embedded_logo() -> Result<HttpResponse, actix_web::Error> {
+    // Embeds the image bytes into the compiled executable binary
+    let logo_bytes = include_bytes!("../static/logo.png");
+
+    Ok(HttpResponse::Ok()
+        .content_type("image/png")
+        .body(logo_bytes.as_slice()))
 }
 
 #[actix_web::main]
@@ -357,7 +360,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_backup_route)
             .service(ping)
             .service(privacy_policy)
-            .service(serve_logo)
+            .service(serve_embedded_logo)
             .route("/ws", web::get().to(ws_handler))
         //.route("/hey", web::get().to(manual_hello))
     })
