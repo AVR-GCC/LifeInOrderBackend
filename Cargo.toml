@@ -31,3 +31,4 @@ argon2 = "0.6.0"
 jsonwebtoken = { version = "11.1.0", default-features = false, features = ["rust_crypto"] }
 rand = "0.10.3"
 sha2 = "0.11.0"
+actix-files = "0.7.0"
