@@ -13,7 +13,7 @@ use crate::{
         aggregates::get_extended_habits, habits::create_habit, options::create_option,
         values::set_value,
     },
-    utils::misc_types::{AuthResponse, AuthResponseTokensSection, Claims, EmailOTP, UserOTP},
+    utils::misc_types::{AuthResponse, AuthResponseTokensSection, Claims},
 };
 use argon2::{
     Argon2,
