@@ -1,5 +1,20 @@
-use chrono::{NaiveDate, Local, Utc, TimeDelta, Days};
+use chrono::{Days, Local, NaiveDate, TimeDelta, Utc};
 
+use crate::db::schema::users::dsl::{
+    created_at as u_created_at, email as u_email, id as u_id, password_hash as u_password_hash,
+    users,
+};
+use crate::{
+    db::models::{
+        HabitType, LoginUser, NewHabit, NewRefreshToken, NewUser, NewVOption, NewValue,
+        RefreshToken, User,
+    },
+    routes::{
+        aggregates::get_extended_habits, habits::create_habit, options::create_option,
+        values::set_value,
+    },
+    utils::misc_types::{AuthResponse, AuthResponseTokensSection, Claims, EmailOTP, UserOTP},
+};
 use argon2::{
     Argon2,
     password_hash::{PasswordHasher, PasswordVerifier, phc::PasswordHash},
@@ -7,22 +22,14 @@ use argon2::{
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use diesel::prelude::*;
 use diesel::dsl::now;
-use jsonwebtoken::{Header, encode, decode, EncodingKey, DecodingKey, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use rand::Rng;
 use sha2::{Digest, Sha256};
-use crate::{
-    db::models::{HabitType, LoginUser, NewHabit, NewRefreshToken, NewUser, NewVOption, NewValue, RefreshToken, User},
-    routes::{aggregates::get_extended_habits, habits::create_habit, options::create_option, values::set_value},
-    utils::misc_types::{AuthResponse, AuthResponseTokensSection, Claims},
-};
-use crate::db::schema::users::dsl::{
-    created_at as u_created_at, email as u_email, id as u_id,
-    password_hash as u_password_hash, users,
-};
 
 use crate::db::schema::refresh_tokens::dsl::{
-    refresh_tokens, id as rt_id, user_id as rt_user_id, token_hash as rt_token_hash, family_id as rt_family_id,
-    expires_at as rt_expires_at, revoked_at as rt_revoked_at, created_at as rt_created_at
+    created_at as rt_created_at, expires_at as rt_expires_at, family_id as rt_family_id,
+    id as rt_id, refresh_tokens, revoked_at as rt_revoked_at, token_hash as rt_token_hash,
+    user_id as rt_user_id,
 };
 use crate::utils::misc_types::Storage;
 
@@ -63,7 +70,7 @@ pub async fn auth_response(
     store: &mut Storage,
     encoding_key: EncodingKey,
     sub: i32,
-    family_id: Option<String>
+    family_id: Option<String>,
 ) -> Result<AuthResponse, actix_web::Error> {
     // claims
     let exp = (Utc::now() + TimeDelta::minutes(10)).timestamp() as usize;
@@ -91,7 +98,7 @@ pub async fn auth_response(
         token_hash,
         family_id: family_id.unwrap_or(generate_token()),
         expires_at,
-        revoked_at: Option::None
+        revoked_at: Option::None,
     };
     diesel::insert_into(refresh_tokens)
         .values(&new_refresh_token)
@@ -112,7 +119,7 @@ pub async fn auth_response(
 pub async fn refresh(
     store: &mut Storage,
     encoding_key: EncodingKey,
-    refresh_token: String
+    refresh_token: String,
 ) -> Result<AuthResponse, actix_web::Error> {
     let token_hash = hash_token(refresh_token.as_str());
     let stored = refresh_tokens
@@ -124,7 +131,7 @@ pub async fn refresh(
             rt_family_id,
             rt_expires_at,
             rt_revoked_at,
-            rt_created_at
+            rt_created_at,
         ))
         .first::<RefreshToken>(&mut store.db)
         .map_err(|e| {
@@ -202,138 +209,138 @@ async fn initial_user_values(
         name: "General".to_string(),
         weight: 1,
         sequence: 1,
-        habit_type: HabitType::Text
+        habit_type: HabitType::Text,
     };
     let food_new_habit = NewHabit {
         user_id,
         name: "Food".to_string(),
         weight: 1,
         sequence: 2,
-        habit_type: HabitType::Text
+        habit_type: HabitType::Text,
     };
     let alcohol_new_habit = NewHabit {
         user_id,
         name: "Alcohol".to_string(),
         weight: 1,
         sequence: 3,
-        habit_type: HabitType::Color
+        habit_type: HabitType::Color,
     };
     let tabacco_new_habit = NewHabit {
         user_id,
         name: "Tabacco".to_string(),
         weight: 3,
         sequence: 4,
-        habit_type: HabitType::Color
+        habit_type: HabitType::Color,
     };
     let workout_new_habit = NewHabit {
         user_id,
         name: "Workout".to_string(),
         weight: 2,
         sequence: 5,
-        habit_type: HabitType::Color
+        habit_type: HabitType::Color,
     };
     let location_new_habit = NewHabit {
         user_id,
         name: "Location".to_string(),
         weight: 2,
         sequence: 6,
-        habit_type: HabitType::Color
+        habit_type: HabitType::Color,
     };
     let general_habit = create_habit(store, general_new_habit).expect("Failed to create habit");
     let general_new_option = NewVOption {
         habit_id: general_habit.id,
         label: None,
         sequence: 1,
-        color: None
+        color: None,
     };
     let food_habit = create_habit(store, food_new_habit).expect("Failed to create habit");
     let food_new_option = NewVOption {
         habit_id: food_habit.id,
         label: None,
         sequence: 1,
-        color: None
+        color: None,
     };
     let alcohol_habit = create_habit(store, alcohol_new_habit).expect("Failed to create habit");
     let alcohol_new_good_option = NewVOption {
         habit_id: alcohol_habit.id,
         label: Some("Dry".to_string()),
         sequence: 1,
-        color: Some("#10b981".to_string())
+        color: Some("#10b981".to_string()),
     };
     let alcohol_new_bad_option = NewVOption {
         habit_id: alcohol_habit.id,
         label: Some("Drank".to_string()),
         sequence: 2,
-        color: Some("#ef4444".to_string())
+        color: Some("#ef4444".to_string()),
     };
     let tabacco_habit = create_habit(store, tabacco_new_habit).expect("Failed to create habit");
     let tabacco_new_good_option = NewVOption {
         habit_id: tabacco_habit.id,
         label: Some("None".to_string()),
         sequence: 1,
-        color: Some("#10b981".to_string())
+        color: Some("#10b981".to_string()),
     };
     let tabacco_new_mid_option = NewVOption {
         habit_id: tabacco_habit.id,
         label: Some("Up to 5 cigs".to_string()),
         sequence: 2,
-        color: Some("#eeee00".to_string())
+        color: Some("#eeee00".to_string()),
     };
     let tabacco_new_mid_bad_option = NewVOption {
         habit_id: tabacco_habit.id,
         label: Some("Made one good choice".to_string()),
         sequence: 3,
-        color: Some("#f97316".to_string())
+        color: Some("#f97316".to_string()),
     };
     let tabacco_new_bad_option = NewVOption {
         habit_id: tabacco_habit.id,
         label: Some("Plenty".to_string()),
         sequence: 4,
-        color: Some("#ef4444".to_string())
+        color: Some("#ef4444".to_string()),
     };
     let workout_habit = create_habit(store, workout_new_habit).expect("Failed to create habit");
     let workout_new_good_option = NewVOption {
         habit_id: workout_habit.id,
         label: Some("Full".to_string()),
         sequence: 1,
-        color: Some("#10b981".to_string())
+        color: Some("#10b981".to_string()),
     };
     let workout_new_mid_option = NewVOption {
         habit_id: workout_habit.id,
         label: Some("Broke a sweat".to_string()),
         sequence: 2,
-        color: Some("#eeee00".to_string())
+        color: Some("#eeee00".to_string()),
     };
     let workout_new_bad_option = NewVOption {
         habit_id: workout_habit.id,
         label: Some("Nothing".to_string()),
         sequence: 3,
-        color: Some("#ef4444".to_string())
+        color: Some("#ef4444".to_string()),
     };
     let location_habit = create_habit(store, location_new_habit).expect("Failed to create habit");
     let location_new_new_york_option = NewVOption {
         habit_id: location_habit.id,
         label: Some("New York".to_string()),
         sequence: 1,
-        color: Some("#0e65e9".to_string())
+        color: Some("#0e65e9".to_string()),
     };
     let location_new_athens_option = NewVOption {
         habit_id: location_habit.id,
         label: Some("Athens".to_string()),
         sequence: 2,
-        color: Some("#08a1f2".to_string())
+        color: Some("#08a1f2".to_string()),
     };
     let location_new_istanbul_option = NewVOption {
         habit_id: location_habit.id,
         label: Some("Istanbul".to_string()),
         sequence: 3,
-        color: Some("#d946ef".to_string())
+        color: Some("#d946ef".to_string()),
     };
     let location_new_travel_option = NewVOption {
         habit_id: location_habit.id,
         label: Some("Travel".to_string()),
         sequence: 4,
-        color: Some("#eeee00".to_string())
+        color: Some("#eeee00".to_string()),
     };
     let general_option = create_option(store, general_new_option).expect("Failed to create option");
     let food_option = create_option(store, food_new_option).expect("Failed to create option");
@@ -377,28 +384,28 @@ async fn initial_user_values(
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(1)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day1_tabacco_new_val = NewValue {
         value_id: tabacco_good_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(1)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day1_workout_new_val = NewValue {
         value_id: workout_mid_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(1)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day1_location_new_val = NewValue {
         value_id: location_new_york_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(1)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let _ = set_value(store, day1_general_new_val, user_id).expect("Failed to update value");
     let _ = set_value(store, day1_food_new_val, user_id).expect("Failed to update value");
@@ -427,28 +434,28 @@ async fn initial_user_values(
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day2_tabacco_new_val = NewValue {
         value_id: tabacco_bad_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day2_workout_new_val = NewValue {
         value_id: workout_bad_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day2_location_new_val = NewValue {
         value_id: location_travel_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(2)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let _ = set_value(store, day2_general_new_val, user_id).expect("Failed to update value");
     let _ = set_value(store, day2_food_new_val, user_id).expect("Failed to update value");
@@ -477,28 +484,28 @@ async fn initial_user_values(
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day3_tabacco_new_val = NewValue {
         value_id: tabacco_mid_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day3_workout_new_val = NewValue {
         value_id: workout_mid_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day3_location_new_val = NewValue {
         value_id: location_athens_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(3)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let _ = set_value(store, day3_general_new_val, user_id).expect("Failed to update value");
     let _ = set_value(store, day3_food_new_val, user_id).expect("Failed to update value");
@@ -527,28 +534,28 @@ async fn initial_user_values(
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day4_tabacco_new_val = NewValue {
         value_id: tabacco_bad_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day4_workout_new_val = NewValue {
         value_id: workout_bad_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day4_location_new_val = NewValue {
         value_id: location_athens_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(4)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let _ = set_value(store, day4_general_new_val, user_id).expect("Failed to update value");
     let _ = set_value(store, day4_food_new_val, user_id).expect("Failed to update value");
@@ -577,28 +584,28 @@ async fn initial_user_values(
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day5_tabacco_new_val = NewValue {
         value_id: tabacco_mid_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day5_workout_new_val = NewValue {
         value_id: workout_mid_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day5_location_new_val = NewValue {
         value_id: location_istanbul_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(5)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let _ = set_value(store, day5_general_new_val, user_id).expect("Failed to update value");
     let _ = set_value(store, day5_food_new_val, user_id).expect("Failed to update value");
@@ -627,28 +634,28 @@ async fn initial_user_values(
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day6_tabacco_new_val = NewValue {
         value_id: tabacco_mid_bad_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day6_workout_new_val = NewValue {
         value_id: workout_bad_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day6_location_new_val = NewValue {
         value_id: location_istanbul_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(6)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let _ = set_value(store, day6_general_new_val, user_id).expect("Failed to update value");
     let _ = set_value(store, day6_food_new_val, user_id).expect("Failed to update value");
@@ -663,7 +670,7 @@ async fn initial_user_values(
         habit_id: general_habit.id,
         date: today.checked_sub_days(Days::new(7)).expect("Failed to derive date"),
         text: Some("Normal workday at home. Cooked dinner and had a quiet evening.".to_string()),
-        number: None
+        number: None,
     };
     let day7_food_new_val = NewValue {
         value_id: food_option.id,
@@ -677,28 +684,28 @@ async fn initial_user_values(
         habit_id: alcohol_habit.id,
         date: today.checked_sub_days(Days::new(7)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day7_tabacco_new_val = NewValue {
         value_id: tabacco_mid_option.id,
         habit_id: tabacco_habit.id,
         date: today.checked_sub_days(Days::new(7)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day7_workout_new_val = NewValue {
         value_id: workout_good_option.id,
         habit_id: workout_habit.id,
         date: today.checked_sub_days(Days::new(7)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let day7_location_new_val = NewValue {
         value_id: location_new_york_option.id,
         habit_id: location_habit.id,
         date: today.checked_sub_days(Days::new(7)).expect("Failed to derive date"),
         text: None,
-        number: None
+        number: None,
     };
     let _ = set_value(store, day7_general_new_val, user_id).expect("Failed to update value");
     let _ = set_value(store, day7_food_new_val, user_id).expect("Failed to update value");

@@ -232,7 +232,7 @@ pub struct SocketResponse<T> {
 
 #[derive(Serialize)]
 pub struct ErrorResponse {
-    pub message: String
+    pub message: String,
 }
 
 #[derive(Serialize)]
@@ -247,7 +247,7 @@ pub struct AuthResponseTokensSection {
 pub struct Claims {
     pub sub: i32,
     pub exp: usize,
-    pub iss: String
+    pub iss: String,
 }
 
 #[derive(Serialize)]
@@ -259,5 +259,5 @@ pub struct AuthResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct TokenQuery {
-    pub t: String
+    pub t: String,
 }
