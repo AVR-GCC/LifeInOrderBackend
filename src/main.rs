@@ -17,10 +17,11 @@ use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{Habit, LoginUser, NewHabit, VOption, Value};
-use crate::routes::users::{login, logout, refresh, signup, verify_token};
+use crate::routes::users::{confirm_email, login, logout, refresh, signup, verify_token};
 use crate::utils::general::get_storage;
 use crate::utils::misc_types::{
-    AppState, ErrorResponse, RefreshTokenRequest, RouteParams, SocketRequest, SocketResponse, TokenQuery, ValuesOrImage
+    AppState, EmailOTP, ErrorResponse, RefreshTokenRequest, RouteParams, SocketRequest,
+    SocketResponse, TokenQuery, ValuesOrImage,
 };
 
 mod db;
@@ -229,16 +230,34 @@ async fn login_route(
     }
 }
 
+#[post("/confirm_email")]
+async fn confirm_email_route(
+    state: web::Data<AppState>,
+    req_body: web::Json<EmailOTP>,
+) -> Result<HttpResponse, actix_web::Error> {
+    println!("confirm_email");
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
+    let email_otp = req_body.into_inner();
+    let inserted = confirm_email(&mut store, state.encoding_key.clone(), email_otp).await.expect("Failed to sign user up");
+    Ok(HttpResponse::Ok().json(inserted))
+}
+
 #[post("/signup")]
 async fn signup_route(
     state: web::Data<AppState>,
     req_body: web::Json<LoginUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    // TODO: check email valid and not taken
+    // TODO: check email not taken
     let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let login_user_object = req_body.into_inner();
-    let inserted = signup(&mut store, state.encoding_key.clone(), login_user_object).await.expect("Failed to create user");
-    Ok(HttpResponse::Ok().json(inserted))
+    signup(
+        &mut store,
+        state.postmark_api_key.clone(),
+        login_user_object,
+    )
+    .await
+    .expect("Failed to set up email confirmation");
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[post("/refresh")]
@@ -285,17 +304,22 @@ async fn privacy_policy() -> Result<HttpResponse, actix_web::Error> {
     Ok(HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
         .body(html))
-
 }
 
+const EMAIL_LOGO: &[u8] = include_bytes!("../static/logo.png");
 #[get("/static/logo.png")]
 async fn serve_embedded_logo() -> Result<HttpResponse, actix_web::Error> {
-    // Embeds the image bytes into the compiled executable binary
-    let logo_bytes = include_bytes!("../static/logo.png");
-
     Ok(HttpResponse::Ok()
         .content_type("image/png")
-        .body(logo_bytes.as_slice()))
+        .body(EMAIL_LOGO))
+}
+
+const BIMI_LOGO: &[u8] = include_bytes!("../static/logo-bimi.svg");
+#[get("/.well-known/bimi/logo.svg")]
+async fn bimi_logo() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("image/svg+xml")
+        .body(BIMI_LOGO)
 }
 
 #[actix_web::main]
@@ -345,6 +369,7 @@ async fn main() -> std::io::Result<()> {
         redis_client: client,
         encoding_key,
         decoding_key,
+        postmark_api_key: c.postmark_api_key,
     };
 
     println!("AppState created - Running server");
@@ -356,11 +381,13 @@ async fn main() -> std::io::Result<()> {
             .service(logout_route)
             .service(signup_route)
             .service(login_route)
+            .service(confirm_email_route)
             .service(refresh_route)
             .service(get_backup_route)
             .service(ping)
             .service(privacy_policy)
             .service(serve_embedded_logo)
+            .service(bimi_logo)
             .route("/ws", web::get().to(ws_handler))
         //.route("/hey", web::get().to(manual_hello))
     })

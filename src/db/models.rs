@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, NaiveDateTime, DateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use diesel::backend::Backend;
 use diesel::deserialize::{self, FromSql};
 use diesel::pg::Pg;
@@ -22,7 +22,7 @@ pub struct User {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(Insertable, Serialize, Deserialize, Debug)]
 #[diesel(table_name = crate::db::schema::users)]
 pub struct NewUser {
     pub email: String,

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="supported-color-schemes" content="dark" />
+  <title>Confirm your email</title>
+  <style type="text/css">
+    /* ---------- Base resets ---------- */
+    html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    body {
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      background-color: #29303d !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    table { border-collapse: collapse !important; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    td { padding: 0; }
+    img { border: 0; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+    a { text-decoration: none; }
+    a[x-apple-data-detectors] {
+      color: inherit !important; text-decoration: none !important; font-size: inherit !important;
+      font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important;
+    }
+    u + .body .gmail-fix { display: none; }
+
+    /* ---------- Type scale ---------- */
+    .h1 { font-size: 24px; line-height: 30px; font-weight: 700; color: #e0e6eb !important; letter-spacing: -0.3px; }
+    .lead { font-size: 15px; line-height: 23px; color: #a9b3c1 !important; }
+    .small { font-size: 13px; line-height: 20px; color: #7b899e !important; }
+    .tiny { font-size: 12px; line-height: 18px; color: #7b899e !important; }
+    .label { font-size: 11px; line-height: 14px; font-weight: 700; letter-spacing: 1.4px; color: #7b899e !important; text-transform: uppercase; }
+    .digit {
+      font-family: "SF Mono", "Roboto Mono", Consolas, "Courier New", monospace;
+      font-size: 26px; line-height: 54px; font-weight: 700; color: #e0e6eb !important;
+    }
+    .code-inline {
+      font-family: "SF Mono", "Roboto Mono", Consolas, "Courier New", monospace;
+      font-size: 15px; color: #7fd0f5 !important; letter-spacing: 3px;
+    }
+
+    /* ---------- Surfaces ---------- */
+    .page { background-color: #29303d !important; }
+    .card { background-color: #323a48 !important; border: 1px solid #414958 !important; border-radius: 14px; }
+    .well { background-color: #262c37 !important; border: 1px solid #414958 !important; border-radius: 10px; }
+    .box  { background-color: #262c37 !important; border: 1px solid #414958 !important; border-radius: 9px; }
+    .box-active { background-color: #262c37 !important; border: 1px solid #269dd9 !important; border-radius: 9px; }
+
+    /* ---------- Button ---------- */
+    .cta {
+      background-color: #269dd9 !important; border-radius: 9px;
+      box-shadow: 0 8px 20px -8px rgba(38, 157, 217, 0.65);
+    }
+    .cta a {
+      display: block; padding: 15px 26px; font-size: 15px; font-weight: 700;
+      color: #ffffff !important; text-align: center; border-radius: 9px;
+    }
+    .cta a:hover { background-color: #2aa8e8 !important; }
+
+    /* ---------- Responsive ---------- */
+    @media only screen and (max-width: 480px) {
+      .container { width: 100% !important; }
+      .pad { padding-left: 22px !important; padding-right: 22px !important; }
+      .h1 { font-size: 21px !important; line-height: 27px !important; }
+      .digit { font-size: 21px !important; line-height: 46px !important; }
+      .box, .box-active { width: 44px !important; }
+      .stack { display: block !important; width: 100% !important; }
+      .hide-sm { display: none !important; }
+    }
+  </style>
+</head>
+
+<body class="body" style="margin:0; padding:0; width:100%; background-color:#29303d;">
+  <!-- Preheader (hidden preview text) -->
+  <div style="display:none; font-size:1px; color:#29303d; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+    Your confirmation code is {{ otp }}. It expires in 10 minutes.
+  </div>
+
+  <table role="presentation" class="page" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#29303d"
+         style="background-color:#29303d;">
+    <tr>
+      <td align="center" style="padding:34px 14px 40px 14px;">
+
+        <!-- ============ BRAND ============ -->
+        <table role="presentation" class="container" width="520" cellpadding="0" cellspacing="0" border="0"
+               style="width:520px; max-width:520px;">
+          <tr>
+            <td style="padding:0 6px 22px 6px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" style="padding-right:12px;">
+                    <!-- Brand mark: a mini habit grid built from table cells -->
+                      <img src="https://lifeinorderbackend.fly.dev/static/logo.png" 
+                        alt="LIO Logo" 
+                        width="90" 
+                        height="90" 
+                        style="display: block; width: 90px; height: 90px; border: 0; outline: none; text-decoration: none;" />
+                    </td>
+                  <td valign="middle" style="font-size:15px; font-weight:700; color:#e0e6eb !important; letter-spacing:0.2px;">
+                    Life&nbsp;In&nbsp;Order
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <!-- ============ CARD ============ -->
+        <table role="presentation" class="container card" width="520" cellpadding="0" cellspacing="0" border="0"
+               bgcolor="#323a48"
+               style="width:520px; max-width:520px; background-color:#323a48; border:1px solid #414958; border-radius:14px;">
+
+          <!-- Kicker -->
+          <tr>
+            <td class="pad" align="center" style="padding:34px 40px 0 40px;">
+              <span class="label">Email confirmation</span>
+            </td>
+          </tr>
+
+          <!-- Headline -->
+          <tr>
+            <td class="pad" align="center" style="padding:12px 40px 0 40px;">
+              <div class="h1" style="font-size:24px; line-height:30px; font-weight:700; color:#e0e6eb;">
+                Confirm your email
+              </div>
+            </td>
+          </tr>
+
+          <!-- Lead -->
+          <tr>
+            <td class="pad" align="center" style="padding:12px 40px 0 40px;">
+              <div class="lead" style="font-size:15px; line-height:23px; color:#a9b3c1;">
+                Enter this 6&#8209;digit code in the app to activate your account.
+              </div>
+            </td>
+          </tr>
+
+          <!-- OTP boxes -->
+          <tr>
+            <td class="pad" align="center" style="padding:28px 40px 0 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="box digit" width="56" height="54" align="center" bgcolor="#262c37"
+                      style="width:56px; height:54px; background-color:#262c37; border:1px solid #414958; border-radius:9px;
+                             font-family:'SF Mono','Roboto Mono',Consolas,monospace; font-size:26px; line-height:54px;
+                             font-weight:700; color:#e0e6eb;">{{ self.digit_at(0) }}</td>
+                  <td width="9" style="width:9px; font-size:9px; line-height:9px;">&nbsp;</td>
+                  <td class="box digit" width="56" height="54" align="center" bgcolor="#262c37"
+                      style="width:56px; height:54px; background-color:#262c37; border:1px solid #414958; border-radius:9px;
+                             font-family:'SF Mono','Roboto Mono',Consolas,monospace; font-size:26px; line-height:54px;
+                             font-weight:700; color:#e0e6eb;">{{ self.digit_at(1) }}</td>
+                  <td width="9" style="width:9px; font-size:9px; line-height:9px;">&nbsp;</td>
+                  <td class="box digit" width="56" height="54" align="center" bgcolor="#262c37"
+                      style="width:56px; height:54px; background-color:#262c37; border:1px solid #414958; border-radius:9px;
+                             font-family:'SF Mono','Roboto Mono',Consolas,monospace; font-size:26px; line-height:54px;
+                             font-weight:700; color:#e0e6eb;">{{ self.digit_at(2) }}</td>
+                  <td width="9" style="width:9px; font-size:9px; line-height:9px;">&nbsp;</td>
+                  <td class="box digit" width="56" height="54" align="center" bgcolor="#262c37"
+                      style="width:56px; height:54px; background-color:#262c37; border:1px solid #414958; border-radius:9px;
+                             font-family:'SF Mono','Roboto Mono',Consolas,monospace; font-size:26px; line-height:54px;
+                             font-weight:700; color:#e0e6eb;">{{ self.digit_at(3) }}</td>
+                  <td width="9" style="width:9px; font-size:9px; line-height:9px;">&nbsp;</td>
+                  <td class="box digit" width="56" height="54" align="center" bgcolor="#262c37"
+                      style="width:56px; height:54px; background-color:#262c37; border:1px solid #414958; border-radius:9px;
+                             font-family:'SF Mono','Roboto Mono',Consolas,monospace; font-size:26px; line-height:54px;
+                             font-weight:700; color:#e0e6eb;">{{ self.digit_at(4) }}</td>
+                  <td width="9" style="width:9px; font-size:9px; line-height:9px;">&nbsp;</td>
+                  <td class="box-active digit" width="56" height="54" align="center" bgcolor="#262c37"
+                      style="width:56px; height:54px; background-color:#262c37; border:1px solid #269dd9; border-radius:9px;
+                             font-family:'SF Mono','Roboto Mono',Consolas,monospace; font-size:26px; line-height:54px;
+                             font-weight:700; color:#e0e6eb;">{{ self.digit_at(5) }}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Expiry strip -->
+          <tr>
+            <td class="pad" style="padding:22px 40px 0 40px;">
+              <table role="presentation" class="well" width="100%" cellpadding="0" cellspacing="0" border="0"
+                     bgcolor="#262c37"
+                     style="background-color:#262c37; border:1px solid #414958; border-radius:10px;">
+                <tr>
+                  <td style="padding:13px 16px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="small" valign="middle"
+                            style="font-size:13px; line-height:20px; color:#7b899e;">
+                          Code expires in
+                        </td>
+                        <td class="small" valign="middle" align="right"
+                            style="font-size:13px; line-height:20px; color:#e0e6eb;
+                                   font-family:'SF Mono','Roboto Mono',Consolas,monospace; font-weight:700;">
+                          10 minutes
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <!-- <tr> -->
+          <!--   <td class="pad" align="center" style="padding:26px 40px 0 40px;"> -->
+          <!--     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"> -->
+          <!--       <tr> -->
+          <!--         <td class="cta" align="center" bgcolor="#262c37" -->
+          <!--             style="background-color:#269dd9; border-radius:9px;"> -->
+          <!--           <a href="#" target="_blank" -->
+          <!--              style="display:block; padding:15px 26px; font-size:15px; font-weight:700; -->
+          <!--                     color:#ffffff; text-align:center; border-radius:9px;"> -->
+          <!--             Open the app -->
+          <!--           </a> -->
+          <!--         </td> -->
+          <!--       </tr> -->
+          <!--     </table> -->
+          <!--   </td> -->
+          <!-- </tr> -->
+
+          <!-- Divider -->
+          <tr>
+            <td class="pad" style="padding:26px 40px 0 40px;">
+              <div style="height:1px; background-color:#414958; font-size:1px; line-height:1px;">&nbsp;</div>
+            </td>
+          </tr>
+
+          <!-- Fallback copy -->
+          <tr>
+            <td class="pad" align="center" style="padding:22px 40px 30px 40px;">
+              <div class="small" style="font-size:12px; line-height:20px; color:#7b899e;">
+                Or paste this code where the app asks for it:<br />
+                <span class="code-inline"
+                      style="font-family:'SF Mono','Roboto Mono',Consolas,monospace; font-size:15px;
+                             color:#7fd0f5; letter-spacing:3px;">{{ otp }}</span>
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- ============ FOOTER ============ -->
+        <table role="presentation" class="container" width="520" cellpadding="0" cellspacing="0" border="0"
+               style="width:520px; max-width:520px;">
+          <tr>
+            <td class="pad" align="center" style="padding:24px 40px 0 40px;">
+              <div class="tiny" style="font-size:12px; line-height:18px; color:#7b899e;">
+                You're getting this because an account was created on Life&nbsp;In&nbsp;Order.
+                Didn't request it? You can safely ignore this email — nothing will be saved.
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad" align="center" style="padding:14px 40px 0 40px;">
+              <div class="tiny" style="font-size:12px; line-height:18px; color:#5f6b7e;">
+                Life&nbsp;In&nbsp;Order &nbsp;&middot;&nbsp; Get your life in order
+              </div>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

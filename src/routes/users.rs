@@ -13,7 +13,7 @@ use crate::{
         aggregates::get_extended_habits, habits::create_habit, options::create_option,
         values::set_value,
     },
-    utils::misc_types::{AuthResponse, AuthResponseTokensSection, Claims},
+    utils::misc_types::{AuthResponse, AuthResponseTokensSection, Claims, EmailOTP, UserOTP},
 };
 use argon2::{
     Argon2,
@@ -23,7 +23,13 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use diesel::prelude::*;
 use diesel::dsl::now;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use postmark::{
+    Query,
+    api::{Body, email::SendEmailRequest},
+    reqwest::PostmarkClient,
+};
 use rand::Rng;
+use rand::RngExt;
 use sha2::{Digest, Sha256};
 
 use crate::db::schema::refresh_tokens::dsl::{
@@ -32,13 +38,31 @@ use crate::db::schema::refresh_tokens::dsl::{
     user_id as rt_user_id,
 };
 use crate::utils::misc_types::Storage;
+use redis::Commands;
+use askama::Template;
 
-pub fn verify_token(token: &str, decoding_key: &DecodingKey) -> Result<Claims, jsonwebtoken::errors::Error> {
-    let data = decode::<Claims>(
-        token,
-        decoding_key,
-        &Validation::default(),
-    )?;
+#[derive(Template)]
+#[template(path = "confirm-email.html")]
+pub struct EmailConfirmationTemplate<'a> {
+    pub otp: &'a str,
+}
+
+impl<'a> EmailConfirmationTemplate<'a> {
+    pub fn digit_at(&self, idx: usize) -> char {
+        self.otp.chars().nth(idx).unwrap_or(' ')
+    }
+}
+
+fn get_email_confirmation_cache_key(email: String) -> String {
+    format!("email-confirmation-{}", email)
+}
+
+pub fn verify_token(
+    token: &str,
+    decoding_key: &DecodingKey,
+) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let data = decode::<Claims>(token, decoding_key, &Validation::default())?;
+
     Ok(data.claims)
 }
 
@@ -718,22 +742,70 @@ async fn initial_user_values(
 
 pub async fn signup(
     store: &mut Storage,
-    encoding_key: EncodingKey,
+    postmark_api_key: String,
     login_user_object: LoginUser,
-) -> Result<AuthResponse, actix_web::Error> {
+) -> Result<(), actix_web::Error> {
     println!("Creating user: {:?}", login_user_object);
+    let key = get_email_confirmation_cache_key(login_user_object.email.clone());
     let argon2 = Argon2::default();
     let password_hash = argon2
         .hash_password(login_user_object.password.as_bytes())
         .map_err(actix_web::error::ErrorInternalServerError)?
         .to_string();
+    let otp = rand::rng().random_range(100_000..1_000_000);
     let new_user = NewUser {
-        email: login_user_object.email,
+        email: login_user_object.email.clone(),
         password_hash,
     };
+    let user_otp = UserOTP {
+        otp,
+        user: new_user,
+    };
+    let _: () = store.cache.set_ex(key, user_otp, 600)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    // Initialize the Postmark client
+    let client = PostmarkClient::builder().server_token(postmark_api_key).build();
+
+    let template = EmailConfirmationTemplate { otp: &otp.to_string() };
+    let html_body = template.render()
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    // Build the email payload
+    let req = SendEmailRequest::builder()
+        .from("auth@life-in-order.com")
+        .to(login_user_object.email)
+        .subject(format!("{otp} is your verification code"))
+        .body(Body::html(html_body))
+        .message_stream("outbound") // Optional: defaults to outbound transactional stream
+        .build();
+
+    // Execute the request
+    let response = req.execute(&client).await.map_err(actix_web::error::ErrorInternalServerError)?;
+
+    println!(
+        "Email sent successfully! Message ID: {:?}",
+        response.message_id
+    );
+    Ok(())
+}
+
+pub async fn confirm_email(
+    store: &mut Storage,
+    encoding_key: EncodingKey,
+    email_otp: EmailOTP,
+) -> Result<AuthResponse, actix_web::Error> {
+    let key = get_email_confirmation_cache_key(email_otp.email);
+    let new_user_otp: UserOTP = store.cache.get(&key).unwrap();
+    if email_otp.otp != new_user_otp.otp {
+        return Err(actix_web::error::ErrorUnauthorized(
+            "Invalid email confirmation",
+        ));
+    }
+    println!("Creating user: {:?}", new_user_otp.user);
 
     let inserted = diesel::insert_into(users)
-        .values(&new_user)
+        .values(&new_user_otp.user)
         .returning((u_id, u_email, u_password_hash, u_created_at))
         .get_result::<User>(&mut store.db)
         .map_err(actix_web::error::ErrorInternalServerError)?;

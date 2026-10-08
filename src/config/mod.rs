@@ -11,6 +11,7 @@ pub struct Config {
     pub host: String,
     pub port: i32,
     pub jwt_secret: String,
+    pub postmark_api_key: String,
 }
 
 impl Config {
@@ -34,12 +35,16 @@ impl Config {
         let jwt_secret = env
             .get("jwt_secret")
             .context("Error: JWT secret not found")?;
+        let postmark_api_key = env
+            .get("postmark_api_key")
+            .context("Error: Postmark API key not found")?;
         Ok(Config {
             host,
             port,
             database_url,
             cache_url,
             jwt_secret,
+            postmark_api_key,
         })
     }
 }

@@ -1,11 +1,11 @@
 use crate::HashMap;
-use crate::db::models::{Habit, HabitType, NewVOption, NewValue, VOption};
+use crate::db::models::{Habit, HabitType, NewUser, NewVOption, NewValue, VOption};
 use chrono::NaiveDate;
 use core::fmt;
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use jsonwebtoken::{DecodingKey, EncodingKey};
-use redis::{FromRedisValue, ParsingError, RedisWrite, ToRedisArgs, Value};
+use redis::{FromRedisValue, ParsingError, RedisWrite, ToRedisArgs, ToSingleRedisArg, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -182,6 +182,7 @@ pub struct AppState {
     pub redis_client: redis::Client,
     pub encoding_key: EncodingKey,
     pub decoding_key: DecodingKey,
+    pub postmark_api_key: String,
 }
 
 pub struct Storage {
@@ -261,3 +262,34 @@ pub struct AuthResponse {
 pub struct TokenQuery {
     pub t: String,
 }
+
+#[derive(Deserialize, Serialize)]
+pub struct UserOTP {
+    pub otp: u32,
+    pub user: NewUser,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct EmailOTP {
+    pub otp: u32,
+    pub email: String,
+}
+
+impl ToRedisArgs for UserOTP {
+    fn write_redis_args<W: ?Sized + RedisWrite>(&self, out: &mut W) {
+        let str =
+            serde_json::to_string(self).expect("Convert to redis value error - malformed UserOTP");
+        str.write_redis_args(out);
+    }
+}
+
+impl FromRedisValue for UserOTP {
+    fn from_redis_value(v: Value) -> Result<Self, ParsingError> {
+        let str = String::from_redis_value(v)?;
+        let res: UserOTP = serde_json::from_str(&str)
+            .map_err(|_| ParsingError::from("Malformed UserOTP in cache"))?;
+        Ok(res)
+    }
+}
+
+impl ToSingleRedisArg for UserOTP {}

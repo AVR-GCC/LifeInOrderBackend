@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     version="1.2"
+     baseProfile="tiny-ps"
+     viewBox="0 0 940 940">
+  <title>Logo</title>
+  <rect x="8" y="10" width="920" height="920" rx="230" fill="#213448"/>
+
+  <rect x="223" y="225" width="62" height="82" rx="5" fill="#10B981"/>
+  <rect x="307" y="225" width="93" height="82" rx="5" fill="#0E65E9"/>
+  <rect x="421" y="225" width="63" height="82" rx="5" fill="#EF4444"/>
+  <rect x="505" y="225" width="124" height="82" rx="5" fill="#EF4444"/>
+  <rect x="651" y="225" width="63" height="82" rx="5" fill="#EF4444"/>
+
+  <rect x="223" y="327" width="62" height="81" rx="5" fill="#10B981"/>
+  <rect x="307" y="327" width="93" height="81" rx="5" fill="#EEEE00"/>
+  <rect x="421" y="327" width="63" height="81" rx="5" fill="#EF4444"/>
+  <rect x="505" y="327" width="124" height="81" rx="5" fill="#555555"/>
+  <rect x="651" y="327" width="63" height="81" rx="5" fill="#EF4444"/>
+
+  <rect x="223" y="430" width="62" height="80" rx="5" fill="#10B981"/>
+  <rect x="307" y="430" width="93" height="80" rx="5" fill="#EEEE00"/>
+  <rect x="421" y="430" width="63" height="80" rx="5" fill="#EF4444"/>
+  <rect x="505" y="430" width="124" height="80" rx="5" fill="#555555"/>
+  <rect x="651" y="430" width="63" height="80" rx="5" fill="#EF4444"/>
+
+  <rect x="223" y="532" width="62" height="81" rx="5" fill="#10B981"/>
+  <rect x="307" y="532" width="93" height="81" rx="5" fill="#EEEE00"/>
+  <rect x="421" y="532" width="63" height="81" rx="5" fill="#EF4444"/>
+  <rect x="505" y="532" width="124" height="81" rx="5" fill="#EF4444"/>
+  <rect x="651" y="532" width="63" height="81" rx="5" fill="#EF4444"/>
+
+  <rect x="223" y="634" width="62" height="81" rx="5" fill="#10B981"/>
+  <rect x="307" y="634" width="93" height="81" rx="5" fill="#10B981"/>
+  <rect x="421" y="634" width="63" height="81" rx="5" fill="#10B981"/>
+  <rect x="505" y="634" width="124" height="81" rx="5" fill="#10B981"/>
+  <rect x="651" y="634" width="63" height="81" rx="5" fill="#10B981"/>
+</svg>
