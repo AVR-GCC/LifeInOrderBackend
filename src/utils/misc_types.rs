@@ -275,6 +275,29 @@ pub struct EmailOTP {
     pub email: String,
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct UserIdOTP {
+    pub otp: u32,
+    pub user_id: i32,
+}
+
+impl ToRedisArgs for UserIdOTP {
+    fn write_redis_args<W: ?Sized + RedisWrite>(&self, out: &mut W) {
+        let str =
+            serde_json::to_string(self).expect("Convert to redis value error - malformed UserIdOTP");
+        str.write_redis_args(out);
+    }
+}
+
+impl FromRedisValue for UserIdOTP {
+    fn from_redis_value(v: Value) -> Result<Self, ParsingError> {
+        let str = String::from_redis_value(v)?;
+        let res: UserIdOTP = serde_json::from_str(&str)
+            .map_err(|_| ParsingError::from("Malformed UserIdOTP in cache"))?;
+        Ok(res)
+    }
+}
+
 impl ToRedisArgs for UserOTP {
     fn write_redis_args<W: ?Sized + RedisWrite>(&self, out: &mut W) {
         let str =
@@ -293,3 +316,4 @@ impl FromRedisValue for UserOTP {
 }
 
 impl ToSingleRedisArg for UserOTP {}
+impl ToSingleRedisArg for UserIdOTP {}

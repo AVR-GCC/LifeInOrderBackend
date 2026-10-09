@@ -17,11 +17,14 @@ use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{Habit, LoginUser, NewHabit, VOption, Value};
-use crate::routes::users::{confirm_email, login, logout, refresh, signup, verify_token};
-use crate::utils::general::get_storage;
-use crate::utils::misc_types::{
-    AppState, EmailOTP, ErrorResponse, RefreshTokenRequest, RouteParams, SocketRequest,
-    SocketResponse, TokenQuery, ValuesOrImage,
+use crate::routes::users::{confirm_email, login, logout, refresh, signup};
+use crate::utils::{
+    users::verify_token,
+    general::get_storage,
+    misc_types::{
+        AppState, EmailOTP, ErrorResponse, RefreshTokenRequest, RouteParams, SocketRequest,
+        SocketResponse, TokenQuery, ValuesOrImage,
+    }
 };
 
 mod db;
@@ -235,7 +238,6 @@ async fn confirm_email_route(
     state: web::Data<AppState>,
     req_body: web::Json<EmailOTP>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    println!("confirm_email");
     let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let email_otp = req_body.into_inner();
     let inserted = confirm_email(&mut store, state.encoding_key.clone(), email_otp).await.expect("Failed to sign user up");
@@ -247,7 +249,6 @@ async fn signup_route(
     state: web::Data<AppState>,
     req_body: web::Json<LoginUser>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    // TODO: check email not taken
     let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let login_user_object = req_body.into_inner();
     signup(

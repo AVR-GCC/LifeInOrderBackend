@@ -74,9 +74,15 @@
 
 <body class="body" style="margin:0; padding:0; width:100%; background-color:#29303d;">
   <!-- Preheader (hidden preview text) -->
-  <div style="display:none; font-size:1px; color:#29303d; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
-    Your confirmation code is {{ otp }}. It expires in 10 minutes.
-  </div>
+    {% if email_exists %}
+    <div style="display:none; font-size:1px; color:#29303d; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+      Your login code is {{ otp }}. Someone tried to sign up using your email.
+    </div>
+    {% else %}
+    <div style="display:none; font-size:1px; color:#29303d; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+      Your confirmation code is {{ otp }}. It expires in 10 minutes.
+    </div>
+    {% endif %}
 
   <table role="presentation" class="page" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#29303d"
          style="background-color:#29303d;">
@@ -115,25 +121,41 @@
           <!-- Kicker -->
           <tr>
             <td class="pad" align="center" style="padding:34px 40px 0 40px;">
-              <span class="label">Email confirmation</span>
+                {% if email_exists %}
+                <span class="label">Sign in code</span>
+                {% else %}
+                <span class="label">Email confirmation</span>
+                {% endif %}
             </td>
           </tr>
 
           <!-- Headline -->
           <tr>
             <td class="pad" align="center" style="padding:12px 40px 0 40px;">
+              {% if email_exists %}
+              <div class="h1" style="font-size:24px; line-height:30px; font-weight:700; color:#e0e6eb;">
+                Sign in to your account
+              </div>
+              {% else %}
               <div class="h1" style="font-size:24px; line-height:30px; font-weight:700; color:#e0e6eb;">
                 Confirm your email
               </div>
+              {% endif %}
             </td>
           </tr>
 
           <!-- Lead -->
           <tr>
             <td class="pad" align="center" style="padding:12px 40px 0 40px;">
-              <div class="lead" style="font-size:15px; line-height:23px; color:#a9b3c1;">
-                Enter this 6&#8209;digit code in the app to activate your account.
-              </div>
+                {% if email_exists %}
+                <div class="lead" style="font-size:15px; line-height:23px; color:#a9b3c1;">
+                  Someone attempted to create a new account using this email address. Since you already have an account, enter this code in the app to sign in immediately.
+                </div>
+                {% else %}
+                <div class="lead" style="font-size:15px; line-height:23px; color:#a9b3c1;">
+                  Enter this 6&#8209;digit code in the app to activate your account.
+                </div>
+                {% endif %}
             </td>
           </tr>
 
@@ -246,10 +268,17 @@
                style="width:520px; max-width:520px;">
           <tr>
             <td class="pad" align="center" style="padding:24px 40px 0 40px;">
-              <div class="tiny" style="font-size:12px; line-height:18px; color:#7b899e;">
-                You're getting this because an account was created on Life&nbsp;In&nbsp;Order.
-                Didn't request it? You can safely ignore this email — nothing will be saved.
-              </div>
+                {% if email_exists %}
+                <div class="tiny" style="font-size:12px; line-height:18px; color:#7b899e;">
+                  You received this email because someone tried to sign up with your email address.
+                  If this wasn't you, your account remains secure and you can safely ignore this email.
+                </div>
+                {% else %}
+                <div class="tiny" style="font-size:12px; line-height:18px; color:#7b899e;">
+                  You're getting this because an account was created on Life&nbsp;In&nbsp;Order.
+                  Didn't request it? You can safely ignore this email — nothing will be saved.
+                </div>
+                {% endif %}
             </td>
           </tr>
           <tr>
