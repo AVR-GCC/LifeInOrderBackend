@@ -240,8 +240,13 @@ async fn confirm_email_route(
 ) -> Result<HttpResponse, actix_web::Error> {
     let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let email_otp = req_body.into_inner();
-    let inserted = confirm_email(&mut store, state.encoding_key.clone(), email_otp).await.expect("Failed to sign user up");
-    Ok(HttpResponse::Ok().json(inserted))
+    let inserted_opt = confirm_email(&mut store, state.encoding_key.clone(), email_otp).await;
+    match inserted_opt {
+        Ok(inserted) => Ok(HttpResponse::Ok().json(inserted)),
+        Err(_) => Ok(HttpResponse::Unauthorized().json(ErrorResponse {
+            message: "Invalid email confirmation".to_string(),
+        }))
+    }
 }
 
 #[post("/signup")]
@@ -251,14 +256,13 @@ async fn signup_route(
 ) -> Result<HttpResponse, actix_web::Error> {
     let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let login_user_object = req_body.into_inner();
-    signup(
-        &mut store,
-        state.postmark_api_key.clone(),
-        login_user_object,
-    )
-    .await
-    .expect("Failed to set up email confirmation");
-    Ok(HttpResponse::Ok().finish())
+    let res = signup(&mut store, state.postmark_api_key.clone(), login_user_object).await;
+    match res {
+        Ok(_) => Ok(HttpResponse::Ok().finish()),
+        Err(_) => Ok(HttpResponse::InternalServerError().json(ErrorResponse {
+            message: "Signup failed".to_string(),
+        }))
+    }
 }
 
 #[post("/refresh")]
@@ -268,8 +272,13 @@ async fn refresh_route(
 ) -> Result<HttpResponse, actix_web::Error> {
     let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let refresh_token_req = req_body.into_inner();
-    let inserted = refresh(&mut store, state.encoding_key.clone(), refresh_token_req.refresh_token).await?;
-    Ok(HttpResponse::Ok().json(inserted))
+    let inserted_opt = refresh(&mut store, state.encoding_key.clone(), refresh_token_req.refresh_token).await;
+    match inserted_opt {
+        Ok(inserted) => Ok(HttpResponse::Ok().json(inserted)),
+        Err(_) => Ok(HttpResponse::Unauthorized().json(ErrorResponse {
+            message: "Authentication failed".to_string(),
+        }))
+    }
 }
 
 #[post("/logout")]
@@ -279,7 +288,11 @@ async fn logout_route(
 ) -> Result<HttpResponse, actix_web::Error> {
     let store = get_storage(state.clone()).expect("Failed to init storage");
     let logout_res = req_body.into_inner();
-    logout(store, logout_res.refresh_token).await?;
+    if let Err(_) = logout(store, logout_res.refresh_token).await {
+        return Ok(HttpResponse::Unauthorized().json(ErrorResponse {
+            message: "Logout failed".to_string(),
+        }));
+    }
     Ok(HttpResponse::NoContent().finish())
 }
 
