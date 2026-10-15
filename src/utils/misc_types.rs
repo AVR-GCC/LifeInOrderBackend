@@ -191,8 +191,16 @@ pub struct Storage {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct PasswordChangeRequest {
+    pub old_password: String,
+    pub new_password: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "route", content = "params")]
 pub enum RouteParams {
+    #[serde(rename = "users-put")]
+    UsersPut(PasswordChangeRequest),
     #[serde(rename = "values-post")]
     Values(NewValue),
     #[serde(rename = "options-post")]

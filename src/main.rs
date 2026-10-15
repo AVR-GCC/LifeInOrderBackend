@@ -17,7 +17,7 @@ use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
 use crate::db::models::{Habit, LoginUser, NewHabit, VOption, Value};
-use crate::routes::users::{confirm_email, login, logout, refresh, signup};
+use crate::routes::users::{change_password, confirm_email, login, logout, refresh, signup};
 use crate::utils::{
     users::verify_token,
     general::get_storage,
@@ -53,6 +53,25 @@ async fn ws_handler(
                     let req: SocketRequest = serde_json::from_str(trimmed.to_string().as_str())
                         .expect(format!("Malformed socket request: {}", text).as_str());
                     let ret = match req.action {
+                        RouteParams::UsersPut(passwords) => {
+                            let change_password_res = change_password(&mut store, user_id, passwords.old_password, passwords.new_password).await;
+                            let res = if let Err(e) = change_password_res {
+                                SocketResponse::<bool> {
+                                    id: req.id,
+                                    data: None,
+                                    error: Some(format!("{:?}", e))
+                                }
+                            } else {
+                                SocketResponse::<bool> {
+                                    id: req.id,
+                                    data: Some(true),
+                                    error: None,
+                                }
+                            };
+                            let ans = serde_json::to_string(&res).unwrap();
+                            println!("socket UsersPut {}", ans);
+                            ans
+                        }
                         RouteParams::ListGet(get_list_req) => {
                             let data = get_list(store, user_id, get_list_req.date, get_list_req.zoom, get_list_req.width).await.expect("Failed to get list");
                             let str_data = match data {

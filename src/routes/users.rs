@@ -34,6 +34,45 @@ use crate::utils::misc_types::{Storage, UserIdOTP};
 use redis::{Commands, RedisResult};
 use askama::Template;
 
+pub async fn change_password(
+    store: &mut Storage,
+    user_id: i32,
+    old_password: String,
+    new_password: String,
+) -> Result<(), actix_web::Error> {
+    let hash_opt = users
+        .filter(u_id.eq(user_id))
+        .select(u_password_hash)
+        .first::<Option<String>>(&mut store.db)
+        .map_err(|e| {
+            println!("Query user error: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+    let approved = match hash_opt {
+        Some(hash) => {
+            let password_correct = confirm_password(old_password, hash);
+            match password_correct {
+                Ok(x) => x,
+                Err(_) => false
+            }
+        }
+        Option::None => true
+    };
+    if !approved {
+        return Err(actix_web::error::ErrorUnauthorized("Wrong existing password"));
+    }
+    let argon2 = Argon2::default();
+    let password_hash = argon2
+        .hash_password(new_password.as_bytes())
+        .map_err(actix_web::error::ErrorInternalServerError)?
+        .to_string();
+    let _ = diesel::update(users)
+        .filter(u_id.eq(user_id))
+        .set(u_password_hash.eq(password_hash))
+        .execute(&mut store.db);
+    Ok(())
+}
+
 pub async fn logout(
     mut store: Storage,
     refresh_token: String
