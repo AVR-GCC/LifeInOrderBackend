@@ -1,7 +1,8 @@
 use crate::HashMap;
 use crate::db::models::{Habit, HabitType, NewUser, NewVOption, NewValue, VOption};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 use core::fmt;
+use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use jsonwebtoken::{DecodingKey, EncodingKey};
@@ -252,9 +253,17 @@ pub struct AuthResponseTokensSection {
     pub refresh_token: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Queryable, Deserialize, Serialize, Debug)]
+pub struct FrontendUser {
+    pub id: i32,
+    pub email: String,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Claims {
-    pub sub: i32,
+    pub sub: String,
+    pub user: FrontendUser,
     pub exp: usize,
     pub iss: String,
 }
@@ -262,7 +271,7 @@ pub struct Claims {
 #[derive(Serialize)]
 pub struct AuthResponse {
     pub tokens: AuthResponseTokensSection,
-    pub user: Claims,
+    pub claims: Claims,
     pub habits: Vec<ExtendedHabit>,
 }
 

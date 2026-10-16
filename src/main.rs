@@ -41,7 +41,7 @@ async fn ws_handler(
 ) -> Result<HttpResponse, actix_web::Error> {
     let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
     let claims = verify_token(&query.t, &state.decoding_key).expect("Connection refused");
-    let user_id = claims.sub;
+    let user_id = i32::from_str_radix(claims.sub.as_str(), 10).expect("Malformed user_id");
     println!("user_id: {:?}", user_id);
 
     actix_web::rt::spawn(async move {

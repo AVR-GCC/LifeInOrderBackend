@@ -7,7 +7,7 @@ use crate::{
         aggregates::get_extended_habits, habits::create_habit, options::create_option,
         values::set_value,
     },
-    utils::misc_types::{AuthResponse, AuthResponseTokensSection, Claims},
+    utils::misc_types::{AuthResponse, AuthResponseTokensSection, Claims, FrontendUser},
 };
 use argon2::{
     Argon2,
@@ -19,7 +19,10 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode}
 use rand::Rng;
 use sha2::{Digest, Sha256};
 
-use crate::db::schema::refresh_tokens::dsl::refresh_tokens;
+use crate::db::schema::{
+    refresh_tokens::dsl::refresh_tokens,
+    users::dsl::{users, id as u_id, email as u_email, created_at as u_created_at}
+};
 use crate::utils::misc_types::Storage;
 use askama::Template;
 
@@ -49,7 +52,6 @@ pub fn verify_token(
     decoding_key: &DecodingKey,
 ) -> Result<Claims, jsonwebtoken::errors::Error> {
     let data = decode::<Claims>(token, decoding_key, &Validation::default())?;
-
     Ok(data.claims)
 }
 
@@ -68,13 +70,18 @@ pub fn generate_token() -> String {
 pub async fn auth_response(
     store: &mut Storage,
     encoding_key: EncodingKey,
-    sub: i32,
+    user_id: i32,
     family_id: Option<String>,
 ) -> Result<AuthResponse, actix_web::Error> {
     // claims
     let exp = (Utc::now() + TimeDelta::minutes(10)).timestamp() as usize;
     let iss = "lifeinorder".to_string();
-    let claims = Claims { sub, exp, iss };
+    let user: FrontendUser = users
+        .filter(u_id.eq(user_id))
+        .select((u_id, u_email, u_created_at))
+        .first::<FrontendUser>(&mut store.db)
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let claims = Claims { sub: user_id.to_string(), user, exp, iss };
 
     // tokens
     let access_token = encode(&Header::default(), &claims, &encoding_key)
@@ -93,7 +100,7 @@ pub async fn auth_response(
 
     // save refresh token
     let new_refresh_token = NewRefreshToken {
-        user_id: sub,
+        user_id,
         token_hash,
         family_id: family_id.unwrap_or(generate_token()),
         expires_at,
@@ -105,12 +112,12 @@ pub async fn auth_response(
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     // data
-    let habits = get_extended_habits(&mut store.db, sub)
+    let habits = get_extended_habits(&mut store.db, user_id)
         .await
         .map_err(actix_web::error::ErrorInternalServerError)?;
     Ok(AuthResponse {
         tokens,
-        user: claims,
+        claims,
         habits,
     })
 }

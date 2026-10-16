@@ -14,7 +14,7 @@ use std::io::Write;
 //     pub date: NaiveDate,
 // }
 
-#[derive(Queryable, Serialize, Debug)]
+#[derive(Queryable, Serialize, Deserialize, Clone, Debug)]
 pub struct User {
     pub id: i32,
     pub email: String,
