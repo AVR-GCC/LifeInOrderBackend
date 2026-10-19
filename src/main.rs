@@ -40,7 +40,15 @@ async fn ws_handler(
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let (response, mut session, mut msg_stream) = actix_ws::handle(&req, body)?;
-    let claims = verify_token(&query.t, &state.decoding_key).expect("Connection refused");
+    let claims = match verify_token(&query.t, &state.decoding_key) {
+        Ok(c) => c,
+        Err(e) => {
+            println!("WS auth failed: {:?}", e);
+            return Ok(HttpResponse::Unauthorized().json(ErrorResponse {
+                message: "Invalid or expired token".to_string(),
+            }));
+        }
+    };
     let user_id = i32::from_str_radix(claims.sub.as_str(), 10).expect("Malformed user_id");
     println!("user_id: {:?}", user_id);
 
