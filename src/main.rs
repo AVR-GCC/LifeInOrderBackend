@@ -44,13 +44,19 @@ async fn ws_handler(
         Ok(c) => c,
         Err(e) => {
             println!("WS auth failed: {:?}", e);
-            return Ok(HttpResponse::Unauthorized().json(ErrorResponse {
-                message: "Invalid or expired token".to_string(),
-            }));
+            let _ = session
+                .close(Some(actix_ws::CloseReason {
+                    code: actix_ws::CloseCode::Other(4001),
+                    description: Some("token expired or invalid".into()),
+                })).await;
+            return Ok(response);
         }
     };
     let user_id = i32::from_str_radix(claims.sub.as_str(), 10).expect("Malformed user_id");
     println!("user_id: {:?}", user_id);
+    if session.text("connected").await.is_err() {
+       return Ok(response);
+    }
 
     actix_web::rt::spawn(async move {
         while let Some(Ok(msg)) = msg_stream.next().await {
