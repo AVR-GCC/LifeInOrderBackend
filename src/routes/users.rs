@@ -107,7 +107,7 @@ pub async fn refresh(
             println!("Query refresh token error: {:?}", e);
             actix_web::error::ErrorUnauthorized(e)
         })?;
-    if matches!(stored.revoked_at, Some(_)) {
+    if stored.revoked_at.is_some() {
         let _ = diesel::update(refresh_tokens)
             .filter(rt_family_id.eq(stored.family_id))
             .set(rt_revoked_at.eq(now))
