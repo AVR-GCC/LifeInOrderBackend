@@ -30,8 +30,9 @@ use crate::utils::{
 mod db;
 mod routes;
 mod utils;
-use actix_ws::Message;
+use actix_ws::{Message, CloseCode, CloseReason};
 use futures_util::StreamExt;
+use tokio_util::sync::CancellationToken;
 
 async fn ws_handler(
     req: HttpRequest,
@@ -44,200 +45,211 @@ async fn ws_handler(
         Ok(c) => c,
         Err(e) => {
             println!("WS auth failed: {:?}", e);
-            let _ = session
-                .close(Some(actix_ws::CloseReason {
-                    code: actix_ws::CloseCode::Other(4001),
-                    description: Some("token expired or invalid".into()),
-                })).await;
+            let close_object = Some(CloseReason {
+                code: CloseCode::Other(4001),
+                description: Some("token expired or invalid".into()),
+            });
+            let _ = session.close(close_object).await;
             return Ok(response);
         }
     };
     let user_id = i32::from_str_radix(claims.sub.as_str(), 10).expect("Malformed user_id");
     println!("user_id: {:?}", user_id);
     if session.text("connected").await.is_err() {
-       return Ok(response);
+        return Ok(response);
     }
+    let cancel = CancellationToken::new();
 
     actix_web::rt::spawn(async move {
-        while let Some(Ok(msg)) = msg_stream.next().await {
-            match msg {
-                Message::Text(text) => {
-                    let mut store = get_storage(state.clone()).expect("Failed to init storage");
-                    let trimmed = text.trim_matches('\0').trim();
-                    let req: SocketRequest = serde_json::from_str(trimmed.to_string().as_str())
-                        .expect(format!("Malformed socket request: {}", text).as_str());
-                    let ret = match req.action {
-                        RouteParams::UsersPut(passwords) => {
-                            let change_password_res = change_password(&mut store, user_id, passwords.old_password, passwords.new_password).await;
-                            let res = if let Err(e) = change_password_res {
-                                SocketResponse::<bool> {
+        loop {
+            tokio::select! {
+                _ = cancel.cancelled() => {
+                    let _ = session.close(Some(CloseReason {
+                        code: CloseCode::Other(4000),
+                        description: Some("signed out".into()),
+                    })).await;
+                    break;
+                }
+                msg = msg_stream.next() => match msg {
+                    Some(Ok(Message::Text(text))) => {
+                        let mut store = get_storage(state.clone()).expect("Failed to init storage");
+                        let trimmed = text.trim_matches('\0').trim();
+                        let req: SocketRequest = serde_json::from_str(trimmed.to_string().as_str())
+                            .expect(format!("Malformed socket request: {}", text).as_str());
+                        let ret = match req.action {
+                            RouteParams::UsersPut(passwords) => {
+                                let change_password_res = change_password(&mut store, user_id, passwords.old_password, passwords.new_password).await;
+                                let res = if let Err(e) = change_password_res {
+                                    SocketResponse::<bool> {
+                                        id: req.id,
+                                        data: None,
+                                        error: Some(format!("{:?}", e))
+                                    }
+                                } else {
+                                    SocketResponse::<bool> {
+                                        id: req.id,
+                                        data: Some(true),
+                                        error: None,
+                                    }
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                println!("socket UsersPut {}", ans);
+                                ans
+                            }
+                            RouteParams::ListGet(get_list_req) => {
+                                let data = get_list(store, user_id, get_list_req.date, get_list_req.zoom, get_list_req.width).await.expect("Failed to get list");
+                                let str_data = match data {
+                                    ValuesOrImage::Values(values_list) => {
+                                        serde_json::to_string(&values_list).unwrap()
+                                    }
+                                    ValuesOrImage::Image(image_data) => {
+                                        serde_json::to_string(&image_data).unwrap()
+                                    }
+                                };
+                                let res = SocketResponse::<String> {
                                     id: req.id,
-                                    data: None,
-                                    error: Some(format!("{:?}", e))
-                                }
-                            } else {
-                                SocketResponse::<bool> {
+                                    data: Some(str_data),
+                                    error: None,
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                // println!("socket ListGet {}", ans);
+                                ans
+                            }
+                            RouteParams::HabitPost(new_habit_req) => {
+                                let new_habit = NewHabit {
+                                    user_id,
+                                    name: new_habit_req.name,
+                                    weight: new_habit_req.weight,
+                                    sequence: new_habit_req.sequence,
+                                    habit_type: new_habit_req.habit_type,
+                                };
+                                let inserted = create_habit(&mut store, new_habit).expect("Failed to update habit");
+                                // let ret = format!("{:?}", inserted);
+                                let res = SocketResponse::<Habit> {
+                                    id: req.id,
+                                    data: Some(inserted),
+                                    error: None,
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                println!("HabitPost {}", ans);
+                                ans
+                            }
+                            RouteParams::HabitPut(habit) => {
+                                let inserted = update_habit(&mut store, habit).expect("Failed to update habit");
+                                // let ret = format!("{:?}", inserted);
+                                let res = SocketResponse::<Habit> {
+                                    id: req.id,
+                                    data: Some(inserted),
+                                    error: None,
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                // println!("HabitPut {}", ans);
+                                ans
+                            }
+                            RouteParams::HabitsReorder(payload) => {
+                                let _result = reorder_habits(&mut store, payload.ordered_ids).await.expect("Failed to reorder habits");
+                                // let ret = format!("{:?}", inserted);
+                                let res = SocketResponse::<bool> {
                                     id: req.id,
                                     data: Some(true),
                                     error: None,
-                                }
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            println!("socket UsersPut {}", ans);
-                            ans
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                // println!("HabitsReorder {}", ans);
+                                ans
+                            }
+                            RouteParams::HabitDelete(habit_id) => {
+                                let result = delete_habit(&mut store, habit_id).expect("Failed to delete habit");
+                                // let ret = format!("{:?}", inserted);
+                                let res = SocketResponse::<bool> {
+                                    id: req.id,
+                                    data: if result == 0 { None } else { Some(true) },
+                                    error: if result == 0 {
+                                        Some("Delete failed".to_string())
+                                    } else {
+                                        None
+                                    },
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                // println!("HabitDelete {}", ans);
+                                ans
+                            }
+                            RouteParams::OptionPost(new_option) => {
+                                let inserted = create_option(&mut store, new_option).expect("Failed to update option");
+                                // let ret = format!("{:?}", inserted);
+                                let res = SocketResponse::<VOption> {
+                                    id: req.id,
+                                    data: Some(inserted),
+                                    error: None,
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                // println!("OptionPost {}", ans);
+                                ans
+                            }
+                            RouteParams::OptionPut(option) => {
+                                let inserted = update_option(&mut store, option).expect("Failed to update option");
+                                // let ret = format!("{:?}", inserted);
+                                let res = SocketResponse::<VOption> {
+                                    id: req.id,
+                                    data: Some(inserted),
+                                    error: None,
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                // println!("OptionPut {}", ans);
+                                ans
+                            }
+                            RouteParams::OptionsReorder(payload) => {
+                                let _result = reorder_options(&mut store, payload.ordered_ids).await.expect("Failed to reorder options");
+                                // let ret = format!("{:?}", inserted);
+                                let res = SocketResponse::<bool> {
+                                    id: req.id,
+                                    data: Some(true),
+                                    error: None,
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                // println!("OptionsReorder {}", ans);
+                                ans
+                            }
+                            RouteParams::OptionDelete(option_id) => {
+                                let result = delete_option(&mut store, option_id).expect("Failed to delete option");
+                                // let ret = format!("{:?}", inserted);
+                                let res = SocketResponse::<bool> {
+                                    id: req.id,
+                                    data: if result == 0 { None } else { Some(true) },
+                                    error: if result == 0 {
+                                        Some("Delete failed".to_string())
+                                    } else {
+                                        None
+                                    },
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                // println!("OptionDelete {}", ans);
+                                ans
+                            }
+                            RouteParams::Values(new_value) => {
+                                let inserted = set_value(&mut store, new_value, user_id).expect("Failed to update option");
+                                // let ans = format!("{:?}", inserted);
+                                let res = SocketResponse::<Value> {
+                                    id: req.id,
+                                    data: Some(inserted),
+                                    error: None,
+                                };
+                                let ans = serde_json::to_string(&res).unwrap();
+                                // println!("Values {}", ans);
+                                ans
+                            }
+                        };
+                        if session.text(ret).await.is_err() {
+                            break; // client disconnected
                         }
-                        RouteParams::ListGet(get_list_req) => {
-                            let data = get_list(store, user_id, get_list_req.date, get_list_req.zoom, get_list_req.width).await.expect("Failed to get list");
-                            let str_data = match data {
-                                ValuesOrImage::Values(values_list) => {
-                                    serde_json::to_string(&values_list).unwrap()
-                                }
-                                ValuesOrImage::Image(image_data) => {
-                                    serde_json::to_string(&image_data).unwrap()
-                                }
-                            };
-                            let res = SocketResponse::<String> {
-                                id: req.id,
-                                data: Some(str_data),
-                                error: None,
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            // println!("socket ListGet {}", ans);
-                            ans
-                        }
-                        RouteParams::HabitPost(new_habit_req) => {
-                            let new_habit = NewHabit {
-                                user_id,
-                                name: new_habit_req.name,
-                                weight: new_habit_req.weight,
-                                sequence: new_habit_req.sequence,
-                                habit_type: new_habit_req.habit_type,
-                            };
-                            let inserted = create_habit(&mut store, new_habit).expect("Failed to update habit");
-                            // let ret = format!("{:?}", inserted);
-                            let res = SocketResponse::<Habit> {
-                                id: req.id,
-                                data: Some(inserted),
-                                error: None,
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            println!("HabitPost {}", ans);
-                            ans
-                        }
-                        RouteParams::HabitPut(habit) => {
-                            let inserted = update_habit(&mut store, habit).expect("Failed to update habit");
-                            // let ret = format!("{:?}", inserted);
-                            let res = SocketResponse::<Habit> {
-                                id: req.id,
-                                data: Some(inserted),
-                                error: None,
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            // println!("HabitPut {}", ans);
-                            ans
-                        }
-                        RouteParams::HabitsReorder(payload) => {
-                            let _result = reorder_habits(&mut store, payload.ordered_ids).await.expect("Failed to reorder habits");
-                            // let ret = format!("{:?}", inserted);
-                            let res = SocketResponse::<bool> {
-                                id: req.id,
-                                data: Some(true),
-                                error: None,
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            // println!("HabitsReorder {}", ans);
-                            ans
-                        }
-                        RouteParams::HabitDelete(habit_id) => {
-                            let result = delete_habit(&mut store, habit_id).expect("Failed to delete habit");
-                            // let ret = format!("{:?}", inserted);
-                            let res = SocketResponse::<bool> {
-                                id: req.id,
-                                data: if result == 0 { None } else { Some(true) },
-                                error: if result == 0 {
-                                    Some("Delete failed".to_string())
-                                } else {
-                                    None
-                                },
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            // println!("HabitDelete {}", ans);
-                            ans
-                        }
-                        RouteParams::OptionPost(new_option) => {
-                            let inserted = create_option(&mut store, new_option).expect("Failed to update option");
-                            // let ret = format!("{:?}", inserted);
-                            let res = SocketResponse::<VOption> {
-                                id: req.id,
-                                data: Some(inserted),
-                                error: None,
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            // println!("OptionPost {}", ans);
-                            ans
-                        }
-                        RouteParams::OptionPut(option) => {
-                            let inserted = update_option(&mut store, option).expect("Failed to update option");
-                            // let ret = format!("{:?}", inserted);
-                            let res = SocketResponse::<VOption> {
-                                id: req.id,
-                                data: Some(inserted),
-                                error: None,
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            // println!("OptionPut {}", ans);
-                            ans
-                        }
-                        RouteParams::OptionsReorder(payload) => {
-                            let _result = reorder_options(&mut store, payload.ordered_ids).await.expect("Failed to reorder options");
-                            // let ret = format!("{:?}", inserted);
-                            let res = SocketResponse::<bool> {
-                                id: req.id,
-                                data: Some(true),
-                                error: None,
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            // println!("OptionsReorder {}", ans);
-                            ans
-                        }
-                        RouteParams::OptionDelete(option_id) => {
-                            let result = delete_option(&mut store, option_id).expect("Failed to delete option");
-                            // let ret = format!("{:?}", inserted);
-                            let res = SocketResponse::<bool> {
-                                id: req.id,
-                                data: if result == 0 { None } else { Some(true) },
-                                error: if result == 0 {
-                                    Some("Delete failed".to_string())
-                                } else {
-                                    None
-                                },
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            // println!("OptionDelete {}", ans);
-                            ans
-                        }
-                        RouteParams::Values(new_value) => {
-                            let inserted = set_value(&mut store, new_value, user_id).expect("Failed to update option");
-                            // let ans = format!("{:?}", inserted);
-                            let res = SocketResponse::<Value> {
-                                id: req.id,
-                                data: Some(inserted),
-                                error: None,
-                            };
-                            let ans = serde_json::to_string(&res).unwrap();
-                            // println!("Values {}", ans);
-                            ans
-                        }
-                    };
-                    if session.text(ret).await.is_err() {
-                        break; // client disconnected
                     }
+                    Some(Ok(Message::Close(reason))) => {
+                        println!("Close {:?}", reason);
+                        let _ = session.close(reason).await;
+                        break;
+                    }
+                    _ => {}
                 }
-                Message::Close(reason) => {
-                    let _ = session.close(reason).await;
-                    break;
-                }
-                _ => {}
             }
         }
     });
