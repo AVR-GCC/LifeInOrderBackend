@@ -1,16 +1,20 @@
 use chrono::Utc;
+use actix_web::web;
 
 use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, password_hash as u_password_hash,
     users,
 };
-use crate::utils::users::{
-    EmailConfirmationTemplate, auth_response, confirm_password, get_email_confirmation_cache_key, get_otp_login_cache_key, hash_token, initial_user_values
+use crate::utils::{
+    users::{
+        EmailConfirmationTemplate, auth_response, confirm_password, get_email_confirmation_cache_key, get_otp_login_cache_key, hash_token, initial_user_values
+    },
+    general::get_storage,
+    misc_types::{
+        AppState, AuthResponse, EmailOTP, UserOTP
+    }
 };
-use crate::{
-    db::models::{LoginUser, NewUser, RefreshToken, User},
-    utils::misc_types::{AuthResponse, EmailOTP, UserOTP},
-};
+use crate::db::models::{LoginUser, NewUser, RefreshToken, User};
 use argon2::{
     Argon2,
     password_hash::PasswordHasher,
@@ -35,11 +39,12 @@ use redis::{Commands, RedisResult};
 use askama::Template;
 
 pub async fn change_password(
-    store: &mut Storage,
+    state: web::Data<AppState>,
     user_id: i32,
     old_password: String,
     new_password: String,
 ) -> Result<(), actix_web::Error> {
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let hash_opt = users
         .filter(u_id.eq(user_id))
         .select(u_password_hash)
@@ -70,26 +75,35 @@ pub async fn change_password(
         .filter(u_id.eq(user_id))
         .set(u_password_hash.eq(password_hash))
         .execute(&mut store.db);
+    let _ = diesel::update(refresh_tokens)
+        .filter(rt_user_id.eq(user_id).and(rt_revoked_at.is_null()))
+        .set(rt_revoked_at.eq(now))
+        .execute(&mut store.db);
+    state.socket_registry.close_user(user_id);
     Ok(())
 }
 
 pub async fn logout(
-    mut store: Storage,
+    state: web::Data<AppState>,
     refresh_token: String
 ) -> Result<(), actix_web::Error> {
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let token_hash = hash_token(refresh_token.as_str());
-    let _ = diesel::update(refresh_tokens)
+    let rt_opt = diesel::update(refresh_tokens)
         .filter(rt_token_hash.eq(token_hash.clone()))
         .set(rt_revoked_at.eq(now))
-        .execute(&mut store.db);
+        .get_result::<RefreshToken>(&mut store.db);
+    if let Ok(rt) = rt_opt {
+        state.socket_registry.close(rt.family_id);
+    }
     Ok(())
 }
 
 pub async fn refresh(
-    store: &mut Storage,
-    encoding_key: EncodingKey,
+    state: web::Data<AppState>,
     refresh_token: String,
 ) -> Result<AuthResponse, actix_web::Error> {
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let token_hash = hash_token(refresh_token.as_str());
     let stored = refresh_tokens
         .filter(rt_token_hash.eq(token_hash.clone()))
@@ -108,10 +122,13 @@ pub async fn refresh(
             actix_web::error::ErrorUnauthorized(e)
         })?;
     if stored.revoked_at.is_some() {
-        let _ = diesel::update(refresh_tokens)
-            .filter(rt_family_id.eq(stored.family_id))
+        let rt_opt = diesel::update(refresh_tokens)
+            .filter(rt_token_hash.eq(token_hash.clone()))
             .set(rt_revoked_at.eq(now))
-            .execute(&mut store.db);
+            .get_result::<RefreshToken>(&mut store.db);
+        if let Ok(rt) = rt_opt {
+            state.socket_registry.close(rt.family_id);
+        }
         return Err(actix_web::error::ErrorUnauthorized("Token reuse detected"));
     }
     if stored.expires_at < Utc::now() {
@@ -121,7 +138,7 @@ pub async fn refresh(
         .filter(rt_token_hash.eq(token_hash))
         .set(rt_revoked_at.eq(now))
         .execute(&mut store.db);
-    auth_response(store, encoding_key, stored.user_id, Some(stored.family_id)).await
+    auth_response(&mut store, state.encoding_key.clone(), stored.user_id, Some(stored.family_id)).await
 }
 
 pub async fn login(

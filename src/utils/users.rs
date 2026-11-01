@@ -53,6 +53,7 @@ pub fn verify_token(
 ) -> Result<Claims, jsonwebtoken::errors::Error> {
     let data = decode::<Claims>(token, decoding_key, &Validation::default())?;
     Ok(data.claims)
+    // Err(jsonwebtoken::errors::new_error(jsonwebtoken::errors::ErrorKind::InvalidToken))
 }
 
 pub fn hash_token(token: &str) -> String {
@@ -71,7 +72,7 @@ pub async fn auth_response(
     store: &mut Storage,
     encoding_key: EncodingKey,
     user_id: i32,
-    family_id: Option<String>,
+    family_id_opt: Option<String>,
 ) -> Result<AuthResponse, actix_web::Error> {
     // claims
     let exp = (Utc::now() + TimeDelta::minutes(10)).timestamp() as usize;
@@ -81,7 +82,14 @@ pub async fn auth_response(
         .select((u_id, u_email, u_created_at))
         .first::<FrontendUser>(&mut store.db)
         .map_err(actix_web::error::ErrorInternalServerError)?;
-    let claims = Claims { sub: user_id.to_string(), user, exp, iss };
+    let family_id = family_id_opt.unwrap_or(generate_token());
+    let claims = Claims {
+        sub: user_id.to_string(),
+        user,
+        exp,
+        iss,
+        family_id: family_id.clone()
+    };
 
     // tokens
     let access_token = encode(&Header::default(), &claims, &encoding_key)
@@ -102,7 +110,7 @@ pub async fn auth_response(
     let new_refresh_token = NewRefreshToken {
         user_id,
         token_hash,
-        family_id: family_id.unwrap_or(generate_token()),
+        family_id,
         expires_at,
         revoked_at: Option::None,
     };

@@ -1,5 +1,9 @@
 mod config;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::time::{Duration, Instant};
 use crate::config::Config;
+use crate::utils::socket_registry::SocketRegistry;
+use crate::utils::users::generate_token;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use crate::routes::aggregates::{get_backup, get_list};
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
@@ -34,6 +38,22 @@ use actix_ws::{Message, CloseCode, CloseReason};
 use futures_util::StreamExt;
 use tokio_util::sync::CancellationToken;
 
+const LEAD: u64 = 60;
+
+fn deadline(exp_size: usize, at_expiry: bool) -> Instant {
+    let exp: u64 = exp_size.try_into().expect("Error converting expiration to u64");
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    let target = if at_expiry { exp } else { exp.saturating_sub(LEAD) };
+    Instant::now() + Duration::from_secs(target.saturating_sub(now))
+}
+
+fn reason(code: u16, description: &str) -> CloseReason {
+    CloseReason {
+        code: CloseCode::Other(code),
+        description: Some(description.into()),
+    }
+}
+
 async fn ws_handler(
     req: HttpRequest,
     query: web::Query<TokenQuery>,
@@ -59,16 +79,31 @@ async fn ws_handler(
         return Ok(response);
     }
     let cancel = CancellationToken::new();
+    let conn_id = generate_token();
+    let socket_registry = state.socket_registry.clone();
+    socket_registry.add(claims.family_id.clone(), user_id, conn_id.clone(), cancel.clone());
+    let mut exp = claims.exp;
+    let mut nudged = false;
+    let mut timer = Box::pin(tokio::time::sleep_until(deadline(exp, false)));
 
     actix_web::rt::spawn(async move {
         loop {
             tokio::select! {
                 _ = cancel.cancelled() => {
-                    let _ = session.close(Some(CloseReason {
-                        code: CloseCode::Other(4000),
-                        description: Some("signed out".into()),
-                    })).await;
+                    let _ = session.close(Some(reason(4000, "signed out"))).await;
                     break;
+                }
+                _ = &mut timer => {
+                    if !nudged {
+                        println!("nudging...");
+                        nudged = true;
+                        if session.text(r#"{"data":"refresh_required"}"#).await.is_err() { break; }
+                        timer.as_mut().reset(deadline(exp, true));
+                    } else {
+                        println!("token expired...");
+                        let _ = session.close(Some(reason(4002, "token expired"))).await;
+                        break;
+                    }
                 }
                 msg = msg_stream.next() => match msg {
                     Some(Ok(Message::Text(text))) => {
@@ -77,8 +112,17 @@ async fn ws_handler(
                         let req: SocketRequest = serde_json::from_str(trimmed.to_string().as_str())
                             .expect(format!("Malformed socket request: {}", text).as_str());
                         let ret = match req.action {
+                            RouteParams::RefreshPost(rpr) => {
+                                    let claims_res = verify_token(&rpr.t, &state.decoding_key);
+                                    if let Ok(claims) = claims_res {
+                                        exp = claims.exp;
+                                        nudged = false;
+                                        timer.as_mut().reset(deadline(exp, false));
+                                    }
+                                    r#"{"data":"token_processed"}"#.to_string()
+                            }
                             RouteParams::UsersPut(passwords) => {
-                                let change_password_res = change_password(&mut store, user_id, passwords.old_password, passwords.new_password).await;
+                                let change_password_res = change_password(state.clone(), user_id, passwords.old_password, passwords.new_password).await;
                                 let res = if let Err(e) = change_password_res {
                                     SocketResponse::<bool> {
                                         id: req.id,
@@ -252,6 +296,7 @@ async fn ws_handler(
                 }
             }
         }
+        socket_registry.remove(claims.family_id, conn_id);
     });
 
     Ok(response)
@@ -315,9 +360,8 @@ async fn refresh_route(
     state: web::Data<AppState>,
     req_body: web::Json<RefreshTokenRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let refresh_token_req = req_body.into_inner();
-    let inserted_opt = refresh(&mut store, state.encoding_key.clone(), refresh_token_req.refresh_token).await;
+    let inserted_opt = refresh(state, refresh_token_req.refresh_token).await;
     match inserted_opt {
         Ok(inserted) => Ok(HttpResponse::Ok().json(inserted)),
         Err(_) => Ok(HttpResponse::Unauthorized().json(ErrorResponse {
@@ -331,9 +375,8 @@ async fn logout_route(
     state: web::Data<AppState>,
     req_body: web::Json<RefreshTokenRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let store = get_storage(state.clone()).expect("Failed to init storage");
     let logout_res = req_body.into_inner();
-    if let Err(_) = logout(store, logout_res.refresh_token).await {
+    if let Err(_) = logout(state, logout_res.refresh_token).await {
         return Ok(HttpResponse::Unauthorized().json(ErrorResponse {
             message: "Logout failed".to_string(),
         }));
@@ -423,12 +466,16 @@ async fn main() -> std::io::Result<()> {
     let decoding_key = DecodingKey::from_secret(&secret_bytes);
     println!("JWT keys aquired - Creating AppState");
 
+    // Socket registry
+    let socket_registry = SocketRegistry::default();
+
     let app_state = AppState {
         db_pool: pool.clone(),
         redis_client: client,
         encoding_key,
         decoding_key,
         postmark_api_key: c.postmark_api_key,
+        socket_registry,
     };
 
     println!("AppState created - Running server");

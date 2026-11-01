@@ -34,5 +34,4 @@ sha2 = "0.11.0"
 postmark = { version = "2.0.1", features = ["reqwest"] }
 reqwest = "0.13.5"
 askama = "0.16.1"
-uuid = "1.28.0"
 tokio-util = "0.7.20"

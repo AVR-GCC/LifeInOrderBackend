@@ -1,5 +1,6 @@
 use crate::HashMap;
 use crate::db::models::{Habit, HabitType, NewUser, NewVOption, NewValue, VOption};
+use crate::utils::socket_registry::SocketRegistry;
 use chrono::{NaiveDate, NaiveDateTime};
 use core::fmt;
 use diesel::prelude::*;
@@ -184,6 +185,7 @@ pub struct AppState {
     pub encoding_key: EncodingKey,
     pub decoding_key: DecodingKey,
     pub postmark_api_key: String,
+    pub socket_registry: SocketRegistry,
 }
 
 pub struct Storage {
@@ -197,9 +199,16 @@ pub struct PasswordChangeRequest {
     pub new_password: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TokenQuery {
+    pub t: String,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "route", content = "params")]
 pub enum RouteParams {
+    #[serde(rename = "refresh-post")]
+    RefreshPost(TokenQuery),
     #[serde(rename = "users-put")]
     UsersPut(PasswordChangeRequest),
     #[serde(rename = "values-post")]
@@ -266,6 +275,7 @@ pub struct Claims {
     pub user: FrontendUser,
     pub exp: usize,
     pub iss: String,
+    pub family_id: String,
 }
 
 #[derive(Serialize)]
@@ -273,11 +283,6 @@ pub struct AuthResponse {
     pub tokens: AuthResponseTokensSection,
     pub claims: Claims,
     pub habits: Vec<ExtendedHabit>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TokenQuery {
-    pub t: String,
 }
 
 #[derive(Deserialize, Serialize)]
