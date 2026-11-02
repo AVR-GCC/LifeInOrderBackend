@@ -29,8 +29,9 @@ impl SocketRegistry {
             cancel,
         };
         // println!("add entry: {:?}", entry);
-        let old = self.lock().insert(family_id, entry);
+        let old = self.lock().insert(family_id.clone(), entry);
         if let Some(old) = old {
+            // println!("adding family {}", family_id);
             old.cancel.cancel();
         }
         // println!("self: {:?}", self);
@@ -53,7 +54,7 @@ impl SocketRegistry {
         // println!("self: {:?}", self);
     }
 
-    pub fn close_user(&self, user_id: i32) -> usize {
+    pub fn close_user(&self, user_id: i32, except_family: String) -> usize {
         // println!("close user: {}", user_id);
         let mut map = self.lock();
         let family_ids: Vec<String> = map
@@ -61,9 +62,14 @@ impl SocketRegistry {
             .filter(|(_, e)| e.user_id == user_id)
             .map(|(family_id, _)| family_id.clone())
             .collect();
+        // println!("except_family: {:?}", except_family);
         for family_id in &family_ids {
-            if let Some(entry) = map.remove(family_id) {
-                entry.cancel.cancel();
+            // println!("*family_id: {:?}", *family_id);
+            if *family_id != except_family {
+                if let Some(entry) = map.remove(family_id) {
+                    println!("close user {}", family_id);
+                    entry.cancel.cancel();
+                }
             }
         }
         // println!("self: {:?}", self);

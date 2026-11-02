@@ -43,6 +43,7 @@ pub async fn change_password(
     user_id: i32,
     old_password: String,
     new_password: String,
+    family_id: String,
 ) -> Result<(), actix_web::Error> {
     let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let hash_opt = users
@@ -76,10 +77,10 @@ pub async fn change_password(
         .set(u_password_hash.eq(password_hash))
         .execute(&mut store.db);
     let _ = diesel::update(refresh_tokens)
-        .filter(rt_user_id.eq(user_id).and(rt_revoked_at.is_null()))
+        .filter(rt_user_id.eq(user_id).and(rt_revoked_at.is_null()).and(rt_family_id.ne(family_id.clone())))
         .set(rt_revoked_at.eq(now))
         .execute(&mut store.db);
-    state.socket_registry.close_user(user_id);
+    state.socket_registry.close_user(user_id, family_id);
     Ok(())
 }
 

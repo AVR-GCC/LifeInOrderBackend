@@ -74,7 +74,7 @@ async fn ws_handler(
         }
     };
     let user_id = i32::from_str_radix(claims.sub.as_str(), 10).expect("Malformed user_id");
-    println!("user_id: {:?}", user_id);
+    println!("authenticated: {}", user_id);
     if session.text("connected").await.is_err() {
         return Ok(response);
     }
@@ -90,17 +90,18 @@ async fn ws_handler(
         loop {
             tokio::select! {
                 _ = cancel.cancelled() => {
+                    // println!("cancelled {}", user_id);
                     let _ = session.close(Some(reason(4000, "signed out"))).await;
                     break;
                 }
                 _ = &mut timer => {
                     if !nudged {
-                        println!("nudging...");
+                        // println!("nudging... {}", user_id);
                         nudged = true;
                         if session.text(r#"{"data":"refresh_required"}"#).await.is_err() { break; }
                         timer.as_mut().reset(deadline(exp, true));
                     } else {
-                        println!("token expired...");
+                        // println!("token expired... {}", user_id);
                         let _ = session.close(Some(reason(4002, "token expired"))).await;
                         break;
                     }
@@ -114,15 +115,18 @@ async fn ws_handler(
                         let ret = match req.action {
                             RouteParams::RefreshPost(rpr) => {
                                     let claims_res = verify_token(&rpr.t, &state.decoding_key);
+                                    // println!("refresh posted {}", user_id);
                                     if let Ok(claims) = claims_res {
                                         exp = claims.exp;
                                         nudged = false;
                                         timer.as_mut().reset(deadline(exp, false));
+                                        // println!("refresh approved {}", user_id);
                                     }
                                     r#"{"data":"token_processed"}"#.to_string()
                             }
                             RouteParams::UsersPut(passwords) => {
-                                let change_password_res = change_password(state.clone(), user_id, passwords.old_password, passwords.new_password).await;
+                                // println!("claims.family_id.clone(): {:?}", claims.family_id.clone());
+                                let change_password_res = change_password(state.clone(), user_id, passwords.old_password, passwords.new_password, claims.family_id.clone()).await;
                                 let res = if let Err(e) = change_password_res {
                                     SocketResponse::<bool> {
                                         id: req.id,
@@ -297,6 +301,7 @@ async fn ws_handler(
             }
         }
         socket_registry.remove(claims.family_id, conn_id);
+        // println!("socket closed {}", user_id);
     });
 
     Ok(response)
