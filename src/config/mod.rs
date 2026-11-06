@@ -12,6 +12,7 @@ pub struct Config {
     pub port: i32,
     pub jwt_secret: String,
     pub postmark_api_key: String,
+    pub data_encrypt_key: String,
 }
 
 impl Config {
@@ -38,6 +39,9 @@ impl Config {
         let postmark_api_key = env
             .get("postmark_api_key")
             .context("Error: Postmark API key not found")?;
+        let data_encrypt_key = env
+            .get("data_encryption_key")
+            .context("Error: Data Encrypt Key not found")?;
         Ok(Config {
             host,
             port,
@@ -45,6 +49,7 @@ impl Config {
             cache_url,
             jwt_secret,
             postmark_api_key,
+            data_encrypt_key,
         })
     }
 }

@@ -474,6 +474,10 @@ async fn main() -> std::io::Result<()> {
     // Socket registry
     let socket_registry = SocketRegistry::default();
 
+    // Data encrypt key
+    let bytes_vec = BASE64.decode(c.data_encrypt_key.trim()).expect("Failed to decode data encrypt key");
+    let data_encrypt_key: [u8; 32] = bytes_vec.try_into().expect("Wrong size key");
+
     let app_state = AppState {
         db_pool: pool.clone(),
         redis_client: client,
@@ -481,6 +485,7 @@ async fn main() -> std::io::Result<()> {
         decoding_key,
         postmark_api_key: c.postmark_api_key,
         socket_registry,
+        data_encrypt_key,
     };
 
     println!("AppState created - Running server");
