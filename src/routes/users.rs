@@ -4,6 +4,7 @@ use actix_web::web;
 use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, password_hash as u_password_hash,
     users,
+    wrapped_dek as u_wrapped_dek
 };
 use crate::utils::{
     users::{
@@ -262,7 +263,7 @@ pub async fn confirm_email(
             println!("Creating user: {:?}", new_user_otp.user);
             let inserted = diesel::insert_into(users)
                 .values(&new_user_otp.user)
-                .returning((u_id, u_email, u_password_hash, u_created_at))
+                .returning((u_id, u_email, u_created_at, u_password_hash, u_wrapped_dek))
                 .get_result::<User>(&mut store.db)
                 .map_err(actix_web::error::ErrorInternalServerError)?;
 

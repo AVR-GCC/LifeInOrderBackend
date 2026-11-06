@@ -4,6 +4,7 @@ use tokio::time::{Duration, Instant};
 use crate::config::Config;
 use crate::utils::socket_registry::SocketRegistry;
 use crate::utils::users::generate_token;
+use crate::utils::crypto::encrypt_all_users_data;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use crate::routes::aggregates::{get_backup, get_list};
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
@@ -429,6 +430,13 @@ async fn bimi_logo() -> HttpResponse {
         .body(BIMI_LOGO)
 }
 
+#[get("/encrypt")]
+async fn encrypt(state: web::Data<AppState>) -> Result<HttpResponse, actix_web::Error> {
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
+    encrypt_all_users_data(&mut store, state.data_encrypt_key.clone()).await?;
+    Ok(HttpResponse::Ok().json("Encrypted bitch!"))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // crypto
@@ -504,6 +512,7 @@ async fn main() -> std::io::Result<()> {
             .service(privacy_policy)
             .service(serve_embedded_logo)
             .service(bimi_logo)
+            .service(encrypt)
             .route("/ws", web::get().to(ws_handler))
         //.route("/hey", web::get().to(manual_hello))
     })

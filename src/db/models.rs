@@ -18,8 +18,9 @@ use std::io::Write;
 pub struct User {
     pub id: i32,
     pub email: String,
-    pub password_hash: Option<String>,
     pub created_at: NaiveDateTime,
+    pub password_hash: Option<String>,
+    pub wrapped_dek: Option<Vec<u8>>,
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -89,6 +90,7 @@ pub struct Habit {
     pub sequence: i32,
     pub habit_type: HabitType,
     pub created_at: NaiveDateTime,
+    pub name_enc: Option<Vec<u8>>,
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -109,6 +111,8 @@ pub struct VOption {
     pub habit_id: i32,
     pub color: Option<String>,
     pub created_at: NaiveDateTime,
+    pub label_enc: Option<Vec<u8>>,
+    pub color_enc: Option<Vec<u8>>,
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug)]
@@ -129,6 +133,7 @@ pub struct Value {
     pub text: Option<String>,
     pub number: Option<i32>,
     pub created_at: NaiveDateTime,
+    pub text_enc: Option<Vec<u8>>,
 }
 
 #[derive(Insertable, Serialize, Deserialize, Debug, Clone)]

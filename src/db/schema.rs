@@ -18,6 +18,7 @@ diesel::table! {
         sequence -> Int4,
         habit_type -> HabitType,
         created_at -> Timestamp,
+        name_enc -> Nullable<Bytea>,
     }
 }
 
@@ -29,6 +30,8 @@ diesel::table! {
         habit_id -> Int4,
         color -> Nullable<Varchar>,
         created_at -> Timestamp,
+        label_enc -> Nullable<Bytea>,
+        color_enc -> Nullable<Bytea>,
     }
 }
 
@@ -51,6 +54,7 @@ diesel::table! {
         created_at -> Timestamp,
         #[max_length = 255]
         password_hash -> Nullable<Varchar>,
+        wrapped_dek -> Nullable<Bytea>,
     }
 }
 
@@ -63,6 +67,7 @@ diesel::table! {
         text -> Nullable<Varchar>,
         number -> Nullable<Int4>,
         created_at -> Timestamp,
+        text_enc -> Nullable<Bytea>,
     }
 }
 

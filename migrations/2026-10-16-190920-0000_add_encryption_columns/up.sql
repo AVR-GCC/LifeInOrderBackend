@@ -1,0 +1,5 @@
+ALTER TABLE users ADD COLUMN wrapped_dek BYTEA;
+ALTER TABLE habits ADD COLUMN name_enc BYTEA;
+ALTER TABLE options ADD COLUMN label_enc BYTEA;
+ALTER TABLE options ADD COLUMN color_enc BYTEA;
+ALTER TABLE values ADD COLUMN text_enc BYTEA;

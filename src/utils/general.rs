@@ -21,6 +21,7 @@ use diesel::prelude::*;
 use image::{ImageBuffer, Rgb};
 use redis::Commands;
 use std::collections::HashMap;
+use diesel::{sql_query, sql_types::{Binary, Integer}};
 
 pub fn get_next_date((month, year): MonthYear, zoom: ZoomLevel) -> MonthYear {
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
@@ -366,4 +367,58 @@ pub fn get_storage(state: web::Data<AppState>) -> Result<Storage, actix_web::Err
         .get_connection()
         .expect("Failed to get cache connection");
     Ok(Storage { db, cache })
+}
+
+#[derive(Clone, Debug)]
+pub enum DbValue {
+    // Text(String),
+    // Int(i32),
+    // Bool(bool),
+    Bytes(Vec<u8>)
+}
+
+pub fn bulk_update(
+    store: &mut Storage,
+    table_name: &str,
+    column_name: &str,
+    updates: &[(i32, DbValue)],
+) -> Result<(), diesel::result::Error> {
+    if updates.is_empty() {
+        return Ok(());
+    }
+
+    let mut values_sql = String::new();
+    for (i, _) in updates.iter().enumerate() {
+        if i > 0 {
+            values_sql.push_str(", ");
+        }
+        let id_idx = i * 2 + 1;
+        let val_idx = i * 2 + 2;
+        values_sql.push_str(&format!("(${}, ${})", id_idx, val_idx));
+    }
+
+    let query_str = format!(
+        "UPDATE {} AS u \
+         SET {} = t.new_val \
+         FROM (VALUES {}) AS t(id, new_val) \
+         WHERE u.id = t.id::integer",
+        table_name, column_name, values_sql
+    );
+
+    let mut query = sql_query(query_str).into_boxed();
+
+    for (id, val) in updates {
+        query = query.bind::<Integer, _>(*id);
+
+        query = match val {
+            // DbValue::Text(s) => query.bind::<Text, _>(s),
+            // DbValue::Int(i) => query.bind::<Integer, _>(*i),
+            // DbValue::Bool(b) => query.bind::<Bool, _>(*b),
+            DbValue::Bytes(bytes) => query.bind::<Binary, _>(bytes),
+        };
+    }
+
+    query.execute(&mut store.db)?;
+
+    Ok(())
 }

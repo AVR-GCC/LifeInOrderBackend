@@ -9,7 +9,7 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
 use crate::db::models::{
-    Value, Habit, HabitType, User, VOption
+    Value, HabitType, User,
 };
 use crate::db::schema::values::dsl::{
     date as dv_date, values as values_table, habit_id as dv_habit_id,
@@ -20,15 +20,16 @@ use crate::db::schema::options::dsl::{
 };
 use crate::db::schema::habits::dsl::{
     created_at as uh_created_at, habit_type as uh_habit_type, id as uh_id, name as uh_name,
+    // name_enc as uh_name_enc,
     sequence as uh_sequence, habits as habits_table, user_id as uh_user_id, weight as uh_weight,
 };
 use crate::db::schema::users::dsl::{
-    created_at as u_created_at, email as u_email, id as u_id, password_hash as u_password_hash, users,
+    created_at as u_created_at, email as u_email, id as u_id, password_hash as u_password_hash, users, wrapped_dek as u_wrapped_dek
 };
 use crate::utils::general::{
     create_period_image, get_data_cache_key, get_month_user_values_list, get_next_date, get_user_values_dates_map
 };
-use crate::utils::misc_types::{DateRange, ExtendedHabit, PeriodImageStruct, Storage, UserListResponse, ValuesOrImage, ZoomLevel};
+use crate::utils::misc_types::{ClientHabit, ClientOption, DateRange, ExtendedHabit, PeriodImageStruct, Storage, UserListResponse, ValuesOrImage, ZoomLevel};
 
 pub async fn get_extended_habits(
     db: &mut PgConnection,
@@ -40,6 +41,7 @@ pub async fn get_extended_habits(
         .select((
             uh_id,
             uh_name,
+            // uh_name_enc,
             uh_weight,
             uh_sequence,
             uh_habit_type,
@@ -54,6 +56,7 @@ pub async fn get_extended_habits(
         .load::<(
             i32,
             String,
+            // Option<Vec<u8>>,
             i32,
             i32,
             HabitType,
@@ -75,6 +78,7 @@ pub async fn get_extended_habits(
     for (
         habit_id,
         habit_name,
+        // habit_name_enc,
         habit_weight,
         habit_sequence,
         habit_type,
@@ -89,7 +93,7 @@ pub async fn get_extended_habits(
     {
         // Habits: habit_id -> details with values
         let habit_entry = habits_map.entry(habit_id).or_insert(ExtendedHabit {
-            habit: Habit {
+            habit: ClientHabit {
                 id: habit_id,
                 name: habit_name,
                 weight: habit_weight,
@@ -101,7 +105,7 @@ pub async fn get_extended_habits(
             values: Vec::new(),
             values_hashmap: HashMap::new(),
         });
-        habit_entry.values.push(VOption {
+        habit_entry.values.push(ClientOption {
             id: value_id,
             label: value_label,
             sequence: value_sequence,
@@ -242,7 +246,7 @@ pub async fn get_backup(
     // Fetch user info
     let user = users
         .filter(u_id.eq(user_id))
-        .select((u_id, u_email, u_password_hash, u_created_at))
+        .select((u_id, u_email, u_created_at, u_password_hash, u_wrapped_dek))
         .first::<User>(&mut store.db)
         .map_err(|e| {
             println!("User query error: {:?}", e);

@@ -118,8 +118,8 @@ pub struct GetCacheValuesAndMissingRangesResult {
 
 #[derive(Serialize, Debug)]
 pub struct ExtendedHabit {
-    pub habit: Habit,
-    pub values: Vec<VOption>,
+    pub habit: ClientHabit,
+    pub values: Vec<ClientOption>,
     pub values_hashmap: HashMap<i32, i32>,
 }
 
@@ -186,6 +186,7 @@ pub struct AppState {
     pub decoding_key: DecodingKey,
     pub postmark_api_key: String,
     pub socket_registry: SocketRegistry,
+    pub data_encrypt_key: [u8; 32],
 }
 
 pub struct Storage {
@@ -305,8 +306,8 @@ pub struct UserIdOTP {
 
 impl ToRedisArgs for UserIdOTP {
     fn write_redis_args<W: ?Sized + RedisWrite>(&self, out: &mut W) {
-        let str =
-            serde_json::to_string(self).expect("Convert to redis value error - malformed UserIdOTP");
+        let str = serde_json::to_string(self)
+            .expect("Convert to redis value error - malformed UserIdOTP");
         str.write_redis_args(out);
     }
 }
@@ -339,3 +340,36 @@ impl FromRedisValue for UserOTP {
 
 impl ToSingleRedisArg for UserOTP {}
 impl ToSingleRedisArg for UserIdOTP {}
+
+
+#[derive(Queryable, Deserialize, Serialize, Debug)]
+pub struct ClientHabit {
+    pub id: i32,
+    pub user_id: i32,
+    pub name: String,
+    pub weight: i32,
+    pub sequence: i32,
+    pub habit_type: HabitType,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Queryable, Deserialize, Serialize, Debug)]
+pub struct ClientOption {
+    pub id: i32,
+    pub label: Option<String>,
+    pub sequence: i32,
+    pub habit_id: i32,
+    pub color: Option<String>,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Queryable, Serialize, Debug)]
+pub struct ClientValue {
+    pub id: i32,
+    pub value_id: i32,
+    pub habit_id: i32,
+    pub date: NaiveDate,
+    pub text: Option<String>,
+    pub number: Option<i32>,
+    pub created_at: NaiveDateTime,
+}
