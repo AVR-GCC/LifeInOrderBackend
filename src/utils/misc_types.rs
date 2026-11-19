@@ -1,5 +1,5 @@
 use crate::HashMap;
-use crate::db::models::{Habit, HabitType, NewUser, NewVOption, NewValue, VOption};
+use crate::db::models::{HabitType, NewUser};
 use crate::utils::socket_registry::SocketRegistry;
 use chrono::{NaiveDate, NaiveDateTime};
 use core::fmt;
@@ -16,33 +16,6 @@ use std::str::FromStr;
 pub enum HabitDayValue {
     Int(i32),
     Text(String),
-}
-
-impl ToRedisArgs for HabitDayValue {
-    fn write_redis_args<W: ?Sized + RedisWrite>(&self, out: &mut W) {
-        let str = match self {
-            HabitDayValue::Int(n) => format!("i:{n}"),
-            HabitDayValue::Text(s) => format!("t:{s}"),
-        };
-        str.write_redis_args(out);
-    }
-}
-
-impl FromRedisValue for HabitDayValue {
-    fn from_redis_value(v: Value) -> Result<Self, ParsingError> {
-        let str = String::from_redis_value(v)?;
-
-        if let Some(rest) = str.strip_prefix("i:") {
-            let n = rest
-                .parse::<i32>()
-                .map_err(|_| ParsingError::from("Invalid int payload"))?;
-            Ok(HabitDayValue::Int(n))
-        } else if let Some(rest) = str.strip_prefix("t:") {
-            Ok(HabitDayValue::Text(rest.to_string()))
-        } else {
-            Err(ParsingError::from("Missing type prefix 'i:' or 't:'"))
-        }
-    }
 }
 
 pub type MonthYear = (u32, i32);
@@ -94,7 +67,41 @@ impl ZoomLevel {
     ];
 }
 
-pub type ValuesDataEntry = (i32, HabitType, NaiveDate, i32, Option<String>);
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ValuesDataEntry(pub (i32, HabitType, NaiveDate, i32, Option<Vec<u8>>));
+pub type ValuesDataEntryDec = (i32, HabitType, NaiveDate, i32, Option<String>);
+
+impl ToRedisArgs for ValuesDataEntry {
+    fn write_redis_args<W>(&self, out: &mut W) where W: ?Sized + RedisWrite {
+        let (a, b, c, d, e) = &self.0;
+        a.write_redis_args(out);
+        b.write_redis_args(out);
+        c.to_string().write_redis_args(out);
+        d.write_redis_args(out);
+        e.write_redis_args(out);
+    }
+}
+
+impl FromRedisValue for ValuesDataEntry {
+    fn from_redis_value(v: Value) -> Result<Self, ParsingError> {
+        // If you fetch them as an array/multi-bulk response from Redis:
+        let values: Vec<Value> = FromRedisValue::from_redis_value(v.clone())?;
+        if values.len() < 5 {
+            return Err(ParsingError::from("Malformed RedisValuesEntry in cache - bad tuple size"));
+        }
+        let a = i32::from_redis_value(values[0].clone())?;
+        let b = HabitType::from_redis_value(values[1].clone())?;
+
+        let date_str: String = FromRedisValue::from_redis_value(values[2].clone())?;
+        let c = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
+            .map_err(|_| ParsingError::from("Malformed RedisValuesEntry in cache - invalid date"))?;
+
+        let d = i32::from_redis_value(values[3].clone())?;
+        let e = Option::<Vec<u8>>::from_redis_value(values[4].clone())?;
+
+        Ok(ValuesDataEntry((a, b, c, d, e)))
+    }
+}
 
 pub type DateValuesMap = HashMap<String, HashMap<i32, HabitDayValue>>;
 
@@ -113,7 +120,7 @@ pub struct NaiveDateRange {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GetCacheValuesAndMissingRangesResult {
     pub ranges: Vec<NaiveDateRange>,
-    pub data: DateValuesMap,
+    pub data: Vec<ValuesDataEntry>,
 }
 
 #[derive(Serialize, Debug)]
@@ -166,14 +173,6 @@ pub struct SequenceUpdateRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct CreateHabitRequest {
-    pub name: String,
-    pub weight: i32,
-    pub sequence: i32,
-    pub habit_type: HabitType,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub struct RefreshTokenRequest {
     pub refresh_token: String,
 }
@@ -213,19 +212,19 @@ pub enum RouteParams {
     #[serde(rename = "users-put")]
     UsersPut(PasswordChangeRequest),
     #[serde(rename = "values-post")]
-    Values(NewValue),
+    Values(ClientNewValue),
     #[serde(rename = "options-post")]
-    OptionPost(NewVOption),
+    OptionPost(ClientNewOption),
     #[serde(rename = "options-put")]
-    OptionPut(VOption),
+    OptionPut(ClientOption),
     #[serde(rename = "options-reorder-post")]
     OptionsReorder(SequenceUpdateRequest),
     #[serde(rename = "options-delete")]
     OptionDelete(i32),
     #[serde(rename = "habits-post")]
-    HabitPost(CreateHabitRequest),
+    HabitPost(ClientNewHabit),
     #[serde(rename = "habits-put")]
-    HabitPut(Habit),
+    HabitPut(ClientHabit),
     #[serde(rename = "habits-reorder-post")]
     HabitsReorder(SequenceUpdateRequest),
     #[serde(rename = "habits-delete")]
@@ -342,10 +341,34 @@ impl ToSingleRedisArg for UserOTP {}
 impl ToSingleRedisArg for UserIdOTP {}
 
 
-#[derive(Queryable, Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ClientNewHabit {
+    pub name: String,
+    pub weight: i32,
+    pub sequence: i32,
+    pub habit_type: HabitType,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ClientNewOption {
+    pub label: Option<String>,
+    pub sequence: i32,
+    pub habit_id: i32,
+    pub color: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ClientNewValue {
+    pub value_id: i32,
+    pub habit_id: i32,
+    pub date: NaiveDate,
+    pub text: Option<String>,
+    pub number: Option<i32>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ClientHabit {
     pub id: i32,
-    pub user_id: i32,
     pub name: String,
     pub weight: i32,
     pub sequence: i32,
@@ -353,7 +376,7 @@ pub struct ClientHabit {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Queryable, Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ClientOption {
     pub id: i32,
     pub label: Option<String>,
@@ -363,7 +386,7 @@ pub struct ClientOption {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Queryable, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ClientValue {
     pub id: i32,
     pub value_id: i32,

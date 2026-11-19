@@ -15,57 +15,55 @@ use crate::db::schema::values::dsl::{
     date as dv_date, values as values_table, habit_id as dv_habit_id,
 };
 use crate::db::schema::options::dsl::{
-    color as hv_color, created_at as hv_created_at, habit_id as hv_habit_id, options as options_table,
-    id as hv_id, label as hv_label, sequence as hv_sequence,
+    color_enc as hv_color_enc, created_at as hv_created_at, habit_id as hv_habit_id, options as options_table,
+    id as hv_id, label_enc as hv_label_enc, sequence as hv_sequence,
 };
 use crate::db::schema::habits::dsl::{
-    created_at as uh_created_at, habit_type as uh_habit_type, id as uh_id, name as uh_name,
+    created_at as uh_created_at, habit_type as uh_habit_type, id as uh_id, name_enc as uh_name_enc,
     // name_enc as uh_name_enc,
     sequence as uh_sequence, habits as habits_table, user_id as uh_user_id, weight as uh_weight,
 };
 use crate::db::schema::users::dsl::{
     created_at as u_created_at, email as u_email, id as u_id, password_hash as u_password_hash, users, wrapped_dek as u_wrapped_dek
 };
+use crate::utils::crypto::Dek;
 use crate::utils::general::{
-    create_period_image, get_data_cache_key, get_month_user_values_list, get_next_date, get_user_values_dates_map
+    create_period_image, decrypt_opt, decrypt_str, get_data_cache_key, get_month_user_values_list, get_next_date, get_user_values_dates_map
 };
 use crate::utils::misc_types::{ClientHabit, ClientOption, DateRange, ExtendedHabit, PeriodImageStruct, Storage, UserListResponse, ValuesOrImage, ZoomLevel};
 
 pub async fn get_extended_habits(
     db: &mut PgConnection,
     user_id: i32,
+    dek: &Dek
 ) -> Result<Vec<ExtendedHabit>, actix_web::Error> {
     let habit_value = habits_table
         .inner_join(options_table.on(hv_habit_id.eq(uh_id)))
         .filter(uh_user_id.eq(user_id))
         .select((
             uh_id,
-            uh_name,
-            // uh_name_enc,
+            uh_name_enc,
             uh_weight,
             uh_sequence,
             uh_habit_type,
-            uh_user_id,
             uh_created_at,
             hv_id,
-            hv_label,
+            hv_label_enc,
             hv_sequence,
-            hv_color,
+            hv_color_enc,
             hv_created_at,
         ))
         .load::<(
             i32,
-            String,
-            // Option<Vec<u8>>,
+            Option<Vec<u8>>,
             i32,
             i32,
             HabitType,
-            i32,
             NaiveDateTime,
             i32,
-            Option<String>,
+            Option<Vec<u8>>,
             i32,
-            Option<String>,
+            Option<Vec<u8>>,
             NaiveDateTime,
         )>(db)
         .map_err(|e| {
@@ -77,41 +75,41 @@ pub async fn get_extended_habits(
 
     for (
         habit_id,
-        habit_name,
-        // habit_name_enc,
+        habit_name_enc,
         habit_weight,
         habit_sequence,
         habit_type,
-        habit_user_id,
         habit_created_at,
-        value_id,
-        value_label,
-        value_sequence,
-        value_color,
-        value_created_at,
+        option_id,
+        option_label_enc,
+        option_sequence,
+        option_color_enc,
+        option_created_at,
     ) in habit_value
     {
         // Habits: habit_id -> details with values
+
         let habit_entry = habits_map.entry(habit_id).or_insert(ExtendedHabit {
             habit: ClientHabit {
                 id: habit_id,
-                name: habit_name,
+                name: decrypt_str(habit_name_enc, dek),
                 weight: habit_weight,
                 sequence: habit_sequence,
                 habit_type,
-                user_id: habit_user_id,
                 created_at: habit_created_at,
             },
             values: Vec::new(),
             values_hashmap: HashMap::new(),
         });
+        let option_label = decrypt_opt(option_label_enc, dek);
+        let option_color = decrypt_opt(option_color_enc, dek);
         habit_entry.values.push(ClientOption {
-            id: value_id,
-            label: value_label,
-            sequence: value_sequence,
+            id: option_id,
+            label: option_label,
+            sequence: option_sequence,
             habit_id,
-            color: value_color,
-            created_at: value_created_at,
+            color: option_color,
+            created_at: option_created_at,
         });
     }
 
@@ -120,9 +118,7 @@ pub async fn get_extended_habits(
         .map(|(_, mut habit)| {
             habit.values.sort_by(|a, b| a.sequence.cmp(&b.sequence));
             for (index, value) in habit.values.iter().enumerate() {
-                habit
-                    .values_hashmap
-                    .insert(value.id, index.try_into().unwrap());
+                habit.values_hashmap.insert(value.id, index.try_into().unwrap());
             }
             habit
         })
@@ -136,6 +132,7 @@ pub async fn get_extended_habits(
 pub async fn get_list(
     mut store: Storage,
     user_id: i32,
+    dek: &Dek,
     date: NaiveDate,
     zoom: ZoomLevel,
     width: i32,
@@ -160,8 +157,9 @@ pub async fn get_list(
             &mut store.cache,
             &mut store.db,
             user_id,
-            Some(start_date),
-            Some(end_date),
+            dek,
+            start_date,
+            end_date,
         )
         .await?;
 
@@ -178,8 +176,9 @@ pub async fn get_list(
                 &mut store.cache,
                 &mut store.db,
                 user_id,
-                Some(start_date),
-                Some(end_date),
+                dek,
+                start_date,
+                end_date,
             )
             .await?;
             let row_height = match zoom {
@@ -208,7 +207,7 @@ pub async fn get_list(
                     current_month += 1;
                 }
             }
-            let habits = get_extended_habits(&mut store.db, user_id)
+            let habits = get_extended_habits(&mut store.db, user_id, dek)
                 .await
                 .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -240,6 +239,7 @@ pub async fn get_list(
 
 pub async fn get_backup(
     mut store: Storage,
+    dek: &Dek,
     user_id: i32,
 ) -> Result<HttpResponse, actix_web::Error> {
     println!("Creating backup for user_id: {}", user_id);
@@ -254,7 +254,7 @@ pub async fn get_backup(
         })?;
 
     // Fetch all habits with their values
-    let habits = get_extended_habits(&mut store.db, user_id).await?;
+    let habits = get_extended_habits(&mut store.db, user_id, dek).await?;
 
     // Collect all habit ids
     let habit_ids: Vec<i32> = habits.iter().map(|h| h.habit.id).collect();
@@ -302,7 +302,7 @@ pub async fn get_backup(
                 "habit_id": dv.habit_id,
                 "value_id": dv.value_id,
                 "date": dv.date.format("%Y-%m-%d").to_string(),
-                "text": dv.text,
+                "text": decrypt_str(dv.text_enc.clone(), dek),
                 "number": dv.number,
                 "created_at": dv.created_at.format("%Y-%m-%dT%H:%M:%S").to_string(),
             })

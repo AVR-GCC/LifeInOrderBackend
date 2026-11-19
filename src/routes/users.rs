@@ -6,6 +6,7 @@ use crate::db::schema::users::dsl::{
     users,
     wrapped_dek as u_wrapped_dek
 };
+use crate::utils::crypto::{create_user_wrapped_dek, get_user_dek, unwrap_dek};
 use crate::utils::{
     users::{
         EmailConfirmationTemplate, auth_response, confirm_password, get_email_confirmation_cache_key, get_otp_login_cache_key, hash_token, initial_user_values
@@ -140,19 +141,26 @@ pub async fn refresh(
         .filter(rt_token_hash.eq(token_hash))
         .set(rt_revoked_at.eq(now))
         .execute(&mut store.db);
-    auth_response(&mut store, state.encoding_key.clone(), stored.user_id, Some(stored.family_id)).await
+
+    let dek = get_user_dek(&mut store, stored.user_id, &state.data_encrypt_key, Option::None)
+        .map_err(|e| {
+            println!("Error getting user dek: {:?}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+    auth_response(&mut store, state.encoding_key.clone(), stored.user_id, &dek, Some(stored.family_id)).await
 }
 
 pub async fn login(
     store: &mut Storage,
     encoding_key: EncodingKey,
+    data_encrypt_key: &[u8; 32],
     email: String,
     password: String,
 ) -> Result<AuthResponse, actix_web::Error> {
-    let (id, hash_opt) = users
+    let (id, hash_opt, wrapped_dek) = users
         .filter(u_email.eq(email))
-        .select((u_id, u_password_hash))
-        .first::<(i32, Option<String>)>(&mut store.db)
+        .select((u_id, u_password_hash, u_wrapped_dek))
+        .first::<(i32, Option<String>, Option<Vec<u8>>)>(&mut store.db)
         .map_err(|e| {
             println!("Query user error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
@@ -162,7 +170,12 @@ pub async fn login(
             let password_correct = confirm_password(password, hash);
             match password_correct {
                 Ok(true) => {
-                    auth_response(store, encoding_key, id, Option::None).await
+                    let dek = get_user_dek(store, id, data_encrypt_key, wrapped_dek)
+                        .map_err(|e| {
+                            println!("Error getting user dek: {:?}", e);
+                            actix_web::error::ErrorInternalServerError(e)
+                        })?;
+                    auth_response(store, encoding_key, id, &dek, Option::None).await
                 }
                 Ok(false) => {
                     println!("User password does not match");
@@ -239,20 +252,24 @@ pub async fn signup(
         .body(Body::html(html_body))
         .message_stream("outbound")
         .build();
-    let _response = req.execute(&client).await.map_err(actix_web::error::ErrorInternalServerError)?;
+    let _response = req.execute(&client).await.map_err(|e| {
+        println!("e: {:?}", e);
+        actix_web::error::ErrorInternalServerError(e)
+    })?;
     Ok(())
 }
 
 pub async fn confirm_email(
     store: &mut Storage,
     encoding_key: EncodingKey,
+    data_encrypt_key: &[u8; 32],
     email_otp: EmailOTP,
 ) -> Result<AuthResponse, actix_web::Error> {
     let new_user_key = get_email_confirmation_cache_key(email_otp.email.clone());
     let user_id_otp_key = get_otp_login_cache_key(email_otp.email.clone());
     let new_user_otp_opt: RedisResult<UserOTP> = store.cache.get(&new_user_key);
     let user_id_otp_opt: RedisResult<UserIdOTP> = store.cache.get(&user_id_otp_key);
-    let user_id = match (new_user_otp_opt, user_id_otp_opt) {
+    let (user_id, wrapped_dek) = match (new_user_otp_opt, user_id_otp_opt) {
         (Ok(new_user_otp), Err(_)) => {
             if email_otp.otp != new_user_otp.otp {
                 println!("New user bad otp");
@@ -267,10 +284,19 @@ pub async fn confirm_email(
                 .get_result::<User>(&mut store.db)
                 .map_err(actix_web::error::ErrorInternalServerError)?;
 
+            let (dek, wrapped_dek) = create_user_wrapped_dek(data_encrypt_key)
+                .map_err(actix_web::error::ErrorInternalServerError)?;
+
             println!("Inserted user: {:?}", inserted);
-            initial_user_values(store, inserted.id).await?;
+            initial_user_values(store, inserted.id, &dek).await?;
             let _ = store.cache.del::<String, usize>(new_user_key);
-            inserted.id
+
+            let _ = diesel::update(users)
+                .filter(u_id.eq(inserted.id))
+                .set(u_wrapped_dek.eq(wrapped_dek.clone()))
+                .execute(&mut store.db)
+                .map_err(actix_web::error::ErrorInternalServerError)?;
+            (inserted.id, wrapped_dek)
         },
         (Err(_), Ok(user_id_otp)) => {
             if user_id_otp.otp != email_otp.otp {
@@ -281,7 +307,18 @@ pub async fn confirm_email(
             }
             println!("Logged in user: {}", user_id_otp.user_id);
             let _ = store.cache.del::<String, usize>(user_id_otp_key);
-            user_id_otp.user_id
+
+            let wrapped_dek = users
+                .filter(u_id.eq(user_id_otp.user_id))
+                .select(u_wrapped_dek)
+                .first::<Option<Vec<u8>>>(&mut store.db)
+                .map_err(|e| {
+                    println!("Query error: {:?}", e);
+                    actix_web::error::ErrorInternalServerError(e)
+                })?
+                .unwrap();
+
+            (user_id_otp.user_id, wrapped_dek)
         },
         (_, __) => {
             println!("Email otp not found in cache");
@@ -291,5 +328,7 @@ pub async fn confirm_email(
         }
     };
 
-    auth_response(store, encoding_key, user_id, Option::None).await
+    let dek = unwrap_dek(&data_encrypt_key, &wrapped_dek).expect("Failed to get user dek");
+
+    auth_response(store, encoding_key, user_id, &dek, Option::None).await
 }

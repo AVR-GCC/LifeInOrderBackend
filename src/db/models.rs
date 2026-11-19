@@ -7,6 +7,7 @@ use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Text;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
+use redis::{FromRedisValue, ParsingError, RedisWrite, ToRedisArgs};
 
 // #[derive(Serialize)]
 // pub struct DayColor {
@@ -36,7 +37,7 @@ pub struct LoginUser {
     pub password: String,
 }
 
-#[derive(diesel_derive_enum::DbEnum, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(diesel_derive_enum::DbEnum, Debug, PartialEq, Deserialize, Serialize, Clone)]
 #[db_enum(existing_type_path = "crate::db::schema::sql_types::HabitType")]
 pub enum HabitType {
     Color,
@@ -81,11 +82,35 @@ impl std::fmt::Display for HabitType {
     }
 }
 
+impl ToRedisArgs for HabitType {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
+        let s = match self {
+            HabitType::Color => "Color",
+            HabitType::Text => "Text",
+            HabitType::Number => "Number",
+        };
+        s.write_redis_args(out);
+    }
+}
+
+impl FromRedisValue for HabitType {
+    fn from_redis_value(v: redis::Value) -> Result<Self, ParsingError> {
+        let s: String = FromRedisValue::from_redis_value(v)?;
+        match s.as_str() {
+            "Color" => Ok(HabitType::Color),
+            "Text" => Ok(HabitType::Text),
+            "Number" => Ok(HabitType::Number),
+            _ => Err("Invalid HabitType".into()),
+        }
+    }
+}
 #[derive(Queryable, Deserialize, Serialize, Debug)]
 pub struct Habit {
     pub id: i32,
     pub user_id: i32,
-    pub name: String,
     pub weight: i32,
     pub sequence: i32,
     pub habit_type: HabitType,
@@ -97,7 +122,8 @@ pub struct Habit {
 #[diesel(table_name = crate::db::schema::habits)]
 pub struct NewHabit {
     pub user_id: i32,
-    pub name: String,
+    // pub name: String,
+    pub name_enc: Option<Vec<u8>>,
     pub weight: i32,
     pub sequence: i32,
     pub habit_type: HabitType,
@@ -106,10 +132,8 @@ pub struct NewHabit {
 #[derive(Queryable, Deserialize, Serialize, Debug)]
 pub struct VOption {
     pub id: i32,
-    pub label: Option<String>,
     pub sequence: i32,
     pub habit_id: i32,
-    pub color: Option<String>,
     pub created_at: NaiveDateTime,
     pub label_enc: Option<Vec<u8>>,
     pub color_enc: Option<Vec<u8>>,
@@ -119,9 +143,11 @@ pub struct VOption {
 #[diesel(table_name = crate::db::schema::options)]
 pub struct NewVOption {
     pub habit_id: i32,
-    pub label: Option<String>,
+    // pub label: Option<String>,
+    pub label_enc: Option<Vec<u8>>,
     pub sequence: i32,
-    pub color: Option<String>,
+    // pub color: Option<String>,
+    pub color_enc: Option<Vec<u8>>,
 }
 
 #[derive(Queryable, Serialize, Debug)]
@@ -130,7 +156,6 @@ pub struct Value {
     pub value_id: i32,
     pub habit_id: i32,
     pub date: NaiveDate,
-    pub text: Option<String>,
     pub number: Option<i32>,
     pub created_at: NaiveDateTime,
     pub text_enc: Option<Vec<u8>>,
@@ -142,7 +167,8 @@ pub struct NewValue {
     pub value_id: i32,
     pub habit_id: i32,
     pub date: NaiveDate,
-    pub text: Option<String>,
+    // pub text: Option<String>,
+    pub text_enc: Option<Vec<u8>>,
     pub number: Option<i32>,
 }
 

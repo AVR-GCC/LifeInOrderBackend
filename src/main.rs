@@ -2,9 +2,10 @@ mod config;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::{Duration, Instant};
 use crate::config::Config;
+use crate::utils::misc_types::{ClientHabit, ClientNewHabit, ClientOption, ClientValue};
 use crate::utils::socket_registry::SocketRegistry;
 use crate::utils::users::generate_token;
-use crate::utils::crypto::encrypt_all_users_data;
+use crate::utils::crypto::get_user_dek;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use crate::routes::aggregates::{get_backup, get_list};
 use crate::routes::habits::{create_habit, delete_habit, reorder_habits, update_habit};
@@ -21,7 +22,7 @@ const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 use diesel::pg::PgConnection;
 use diesel::r2d2::{self, ConnectionManager};
 
-use crate::db::models::{Habit, LoginUser, NewHabit, VOption, Value};
+use crate::db::models::{Habit, LoginUser};
 use crate::routes::users::{change_password, confirm_email, login, logout, refresh, signup};
 use crate::utils::{
     users::verify_token,
@@ -86,6 +87,8 @@ async fn ws_handler(
     let mut exp = claims.exp;
     let mut nudged = false;
     let mut timer = Box::pin(tokio::time::sleep_until(deadline(exp, false)));
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
+    let dek = get_user_dek(&mut store, user_id, &state.data_encrypt_key, Option::None).expect("Failed to get user dek");
 
     actix_web::rt::spawn(async move {
         loop {
@@ -146,7 +149,14 @@ async fn ws_handler(
                                 ans
                             }
                             RouteParams::ListGet(get_list_req) => {
-                                let data = get_list(store, user_id, get_list_req.date, get_list_req.zoom, get_list_req.width).await.expect("Failed to get list");
+                                let data = get_list(
+                                        store,
+                                        user_id,
+                                        &dek,
+                                        get_list_req.date,
+                                        get_list_req.zoom,
+                                        get_list_req.width
+                                    ).await.expect("Failed to get list");
                                 let str_data = match data {
                                     ValuesOrImage::Values(values_list) => {
                                         serde_json::to_string(&values_list).unwrap()
@@ -165,14 +175,13 @@ async fn ws_handler(
                                 ans
                             }
                             RouteParams::HabitPost(new_habit_req) => {
-                                let new_habit = NewHabit {
-                                    user_id,
+                                let new_habit = ClientNewHabit {
                                     name: new_habit_req.name,
                                     weight: new_habit_req.weight,
                                     sequence: new_habit_req.sequence,
                                     habit_type: new_habit_req.habit_type,
                                 };
-                                let inserted = create_habit(&mut store, new_habit).expect("Failed to update habit");
+                                let inserted = create_habit(&mut store, user_id, &dek, new_habit).expect("Failed to update habit");
                                 // let ret = format!("{:?}", inserted);
                                 let res = SocketResponse::<Habit> {
                                     id: req.id,
@@ -184,9 +193,9 @@ async fn ws_handler(
                                 ans
                             }
                             RouteParams::HabitPut(habit) => {
-                                let inserted = update_habit(&mut store, habit).expect("Failed to update habit");
+                                let inserted = update_habit(&mut store, &dek, habit).expect("Failed to update habit");
                                 // let ret = format!("{:?}", inserted);
-                                let res = SocketResponse::<Habit> {
+                                let res = SocketResponse::<ClientHabit> {
                                     id: req.id,
                                     data: Some(inserted),
                                     error: None,
@@ -224,9 +233,9 @@ async fn ws_handler(
                                 ans
                             }
                             RouteParams::OptionPost(new_option) => {
-                                let inserted = create_option(&mut store, new_option).expect("Failed to update option");
+                                let inserted = create_option(&mut store, &dek, new_option).expect("Failed to update option");
                                 // let ret = format!("{:?}", inserted);
-                                let res = SocketResponse::<VOption> {
+                                let res = SocketResponse::<ClientOption> {
                                     id: req.id,
                                     data: Some(inserted),
                                     error: None,
@@ -236,9 +245,9 @@ async fn ws_handler(
                                 ans
                             }
                             RouteParams::OptionPut(option) => {
-                                let inserted = update_option(&mut store, option).expect("Failed to update option");
+                                let inserted = update_option(&mut store, &dek, option).expect("Failed to update option");
                                 // let ret = format!("{:?}", inserted);
-                                let res = SocketResponse::<VOption> {
+                                let res = SocketResponse::<ClientOption> {
                                     id: req.id,
                                     data: Some(inserted),
                                     error: None,
@@ -276,9 +285,9 @@ async fn ws_handler(
                                 ans
                             }
                             RouteParams::Values(new_value) => {
-                                let inserted = set_value(&mut store, new_value, user_id).expect("Failed to update option");
+                                let inserted = set_value(&mut store, user_id, &dek, new_value).expect("Failed to update option");
                                 // let ans = format!("{:?}", inserted);
-                                let res = SocketResponse::<Value> {
+                                let res = SocketResponse::<ClientValue> {
                                     id: req.id,
                                     data: Some(inserted),
                                     error: None,
@@ -318,6 +327,7 @@ async fn login_route(
     let auth_res_opt = login(
         &mut store,
         state.encoding_key.clone(),
+        &state.data_encrypt_key,
         login_user.email,
         login_user.password
     ).await;
@@ -336,7 +346,7 @@ async fn confirm_email_route(
 ) -> Result<HttpResponse, actix_web::Error> {
     let mut store = get_storage(state.clone()).expect("Failed to init storage");
     let email_otp = req_body.into_inner();
-    let inserted_opt = confirm_email(&mut store, state.encoding_key.clone(), email_otp).await;
+    let inserted_opt = confirm_email(&mut store, state.encoding_key.clone(), &state.data_encrypt_key, email_otp).await;
     match inserted_opt {
         Ok(inserted) => Ok(HttpResponse::Ok().json(inserted)),
         Err(_) => Ok(HttpResponse::Unauthorized().json(ErrorResponse {
@@ -396,8 +406,9 @@ async fn get_backup_route(
     path_user_id: web::Path<i32>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let user_id = path_user_id.into_inner();
-    let store = get_storage(state).expect("Failed to init storage");
-    get_backup(store, user_id).await
+    let mut store = get_storage(state.clone()).expect("Failed to init storage");
+    let dek = get_user_dek(&mut store, user_id, &state.data_encrypt_key, Option::None).expect("Failed to get user dek");
+    get_backup(store, &dek, user_id).await
 }
 
 #[get("/")]
@@ -430,12 +441,12 @@ async fn bimi_logo() -> HttpResponse {
         .body(BIMI_LOGO)
 }
 
-#[get("/encrypt")]
-async fn encrypt(state: web::Data<AppState>) -> Result<HttpResponse, actix_web::Error> {
-    let mut store = get_storage(state.clone()).expect("Failed to init storage");
-    encrypt_all_users_data(&mut store, state.data_encrypt_key.clone()).await?;
-    Ok(HttpResponse::Ok().json("Encrypted bitch!"))
-}
+// #[get("/encrypt")]
+// async fn encrypt(state: web::Data<AppState>) -> Result<HttpResponse, actix_web::Error> {
+//     let mut store = get_storage(state.clone()).expect("Failed to init storage");
+//     encrypt_all_users_data(&mut store, state.data_encrypt_key.clone()).await?;
+//     Ok(HttpResponse::Ok().json("Encrypted bitch!"))
+// }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -512,7 +523,7 @@ async fn main() -> std::io::Result<()> {
             .service(privacy_policy)
             .service(serve_embedded_logo)
             .service(bimi_logo)
-            .service(encrypt)
+            // .service(encrypt)
             .route("/ws", web::get().to(ws_handler))
         //.route("/hey", web::get().to(manual_hello))
     })

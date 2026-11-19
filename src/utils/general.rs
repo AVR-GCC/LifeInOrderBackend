@@ -1,15 +1,13 @@
 use crate::db::models::HabitType;
 use crate::db::schema::values::dsl::{
-    date as dv_date, values as values_table, text as dv_text, value_id as dv_value_id,
+    date as dv_date, values as values_table, text_enc as dv_text_enc, value_id as dv_value_id,
 };
 use crate::db::schema::options::dsl::{habit_id as hv_habit_id, options as options_table, id as hv_id};
 use crate::db::schema::habits::dsl::{
     habit_type as uh_habit_type, id as uh_id, habits as habits_table, user_id as uh_user_id,
 };
 use crate::utils::misc_types::{
-    AppState, DateRange, DateValuesMap, DayValuesStruct, GetCacheValuesAndMissingRangesResult,
-    HabitDayValue, MonthValuesStruct, MonthYear, NaiveDateRange, Storage, UserListResponse,
-    ValuesDataEntry, ZoomLevel,
+    AppState, DateRange, DateValuesMap, DayValuesStruct, GetCacheValuesAndMissingRangesResult, HabitDayValue, MonthValuesStruct, MonthYear, NaiveDateRange, Storage, UserListResponse, ValuesDataEntry, ValuesDataEntryDec, ZoomLevel,
 };
 use actix_web::web;
 use chrono::{Datelike, Duration, Months, NaiveDate};
@@ -21,7 +19,7 @@ use diesel::prelude::*;
 use image::{ImageBuffer, Rgb};
 use redis::Commands;
 use std::collections::HashMap;
-use diesel::{sql_query, sql_types::{Binary, Integer}};
+use crate::utils::crypto::{Dek, decrypt};
 
 pub fn get_next_date((month, year): MonthYear, zoom: ZoomLevel) -> MonthYear {
     let min_date = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
@@ -103,10 +101,13 @@ pub async fn get_day_level_cache_data(
     user_id: i32,
     year: i32,
     month: u32,
-) -> Option<DateValuesMap> {
+) -> Option<Vec<ValuesDataEntry>> {
     let key = get_data_cache_key(user_id, year, month, ZoomLevel::Day);
     let value: Option<String> = cache.get(key).unwrap();
-    value.and_then(|v| serde_json::from_str(&v).ok())
+    match value {
+        Some(v) => Some(serde_json::from_str(&v).ok())?,
+        Option::None => Option::None
+    }
 }
 
 pub async fn get_cache_values_and_missing_ranges(
@@ -115,8 +116,8 @@ pub async fn get_cache_values_and_missing_ranges(
     from_date: NaiveDate,
     to_date: NaiveDate,
 ) -> Result<GetCacheValuesAndMissingRangesResult, actix_web::Error> {
-    let mut data: DateValuesMap = HashMap::new();
-    let mut ranges: Vec<NaiveDateRange> = Vec::new();
+    let mut data: Vec<ValuesDataEntry> = vec![];
+    let mut ranges: Vec<NaiveDateRange> = vec![];
     let to_month = to_date.month();
     let to_year = to_date.year();
     let mut current_month = from_date.month();
@@ -124,7 +125,7 @@ pub async fn get_cache_values_and_missing_ranges(
     let mut range_start: Option<NaiveDate> =
         NaiveDate::from_ymd_opt(current_year, current_month, 1);
     while current_month < to_month || current_year < to_year {
-        let value_opt: Option<DateValuesMap> =
+        let value_opt: Option<Vec<ValuesDataEntry>> =
             get_day_level_cache_data(cache, user_id, current_year, current_month).await;
         if let Some(cache_value) = value_opt {
             data.extend(cache_value);
@@ -139,7 +140,7 @@ pub async fn get_cache_values_and_missing_ranges(
                 range_start = None;
             }
         } else {
-            if matches!(range_start, None) {
+            if range_start.is_none() {
                 range_start = NaiveDate::from_ymd_opt(current_year, current_month, 1);
             }
         }
@@ -167,36 +168,33 @@ pub async fn get_user_values_data(
         .filter(dv_date.ge(from_date))
         .filter(dv_date.lt(to_date))
         .filter(uh_user_id.eq(user_id))
-        .select((uh_id, uh_habit_type, dv_date, dv_value_id, dv_text))
+        .select((uh_id, uh_habit_type, dv_date, dv_value_id, dv_text_enc))
         .order(dv_date.asc())
-        .load::<ValuesDataEntry>(conn)
+        .load::<(i32, HabitType, NaiveDate, i32, Option<Vec<u8>>)>(conn) // Load as raw tuple
         .map_err(|e| {
             println!("Query error: {:?}", e);
             actix_web::error::ErrorInternalServerError(e)
-        })?;
+        })?
+        .into_iter()
+        .map(ValuesDataEntry)
+        .collect();
     Ok(value_data)
 }
 
 pub fn values_data_into_map(
-    user_id: i32,
-    value_data: Vec<ValuesDataEntry>,
-) -> HashMap<String, DateValuesMap> {
-    let mut dates_maps_map: HashMap<String, DateValuesMap> = HashMap::new();
+    value_data: Vec<ValuesDataEntryDec>,
+) -> DateValuesMap {
+    let mut dates_maps_map: DateValuesMap = HashMap::new();
 
     for (habit_id, habit_type, date, value_id, text) in value_data {
         // Dates: date -> habit_id -> HabitDayValue
-        let month = date.month();
-        let year = date.year();
         let date_str = date.to_string();
-        let cache_key = get_data_cache_key(user_id, year, month, ZoomLevel::Day);
         let value = if habit_type == HabitType::Text {
             HabitDayValue::Text(text.unwrap_or_default())
         } else {
             HabitDayValue::Int(value_id)
         };
         dates_maps_map
-            .entry(cache_key)
-            .or_insert_with(&HashMap::new)
             .entry(date_str)
             .or_insert_with(HashMap::new)
             .insert(habit_id, value);
@@ -209,29 +207,48 @@ pub async fn get_user_values_dates_map(
     cache: &mut redis::Connection,
     conn: &mut PgConnection,
     user_id: i32,
-    from_date_opt: Option<NaiveDate>,
-    to_date_opt: Option<NaiveDate>,
+    dek: &Dek,
+    from_date: NaiveDate,
+    to_date: NaiveDate,
 ) -> Result<DateValuesMap, actix_web::Error> {
-    let from_date = from_date_opt.unwrap_or(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
-    let to_date = to_date_opt.unwrap_or(NaiveDate::from_ymd_opt(2030, 1, 1).unwrap());
     let res = get_cache_values_and_missing_ranges(cache, user_id, from_date, to_date).await?;
     // dbg!(&res.ranges);
-    let mut dates_map: DateValuesMap = res.data;
+    let mut data_entries: Vec<ValuesDataEntry> = res.data;
     for range in &res.ranges {
         let value_data: Vec<ValuesDataEntry> =
             get_user_values_data(conn, user_id, range.start, range.end).await?;
-        // Build response
-        let dates_map_map: HashMap<String, DateValuesMap> =
-            values_data_into_map(user_id, value_data);
-        for (key, map) in dates_map_map {
-            let json = serde_json::to_string(&map)
-                .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
-            let _: () = cache
-                .set(key, json)
-                .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
-            dates_map.extend(map);
+        let mut cur_month = range.start.month();
+        let mut cur_year = range.start.year();
+        let end_month = range.end.month();
+        let end_year = range.end.year();
+        let mut values_for_cache: HashMap<MonthYear, Vec<&ValuesDataEntry>> = HashMap::new();
+        while cur_month < end_month || cur_year < end_year {
+            values_for_cache.insert((cur_month, cur_year), vec![]);
+            (cur_month, cur_year) = get_next_date((cur_month, cur_year), ZoomLevel::Day);
         }
+        for vde in value_data.iter() {
+            let month = vde.0.2.month();
+            let year = vde.0.2.year();
+            let cache_key = (month, year);
+            let mut month_vec: Vec<&ValuesDataEntry> = values_for_cache.get(&cache_key).unwrap().to_vec();
+            month_vec.push(vde);
+            values_for_cache.insert(cache_key, month_vec);
+        }
+        for (key, vfc) in values_for_cache.iter() {
+            let cache_key = get_data_cache_key(user_id, key.1, key.0, ZoomLevel::Day);
+            let json_data = serde_json::to_string(&vfc)?;
+            let _: () = cache
+                .set(cache_key, json_data)
+                .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        }
+        data_entries.extend(value_data);
     }
+
+    let decrypted_data: Vec<ValuesDataEntryDec> = data_entries.iter().map(|vde| {
+        (vde.0.0.clone(), vde.0.1.clone(), vde.0.2.clone(), vde.0.3.clone(), decrypt_opt(vde.0.4.clone(), dek))
+    }).collect();
+
+    let dates_map = values_data_into_map(decrypted_data);
 
     Ok(dates_map)
 }
@@ -369,56 +386,82 @@ pub fn get_storage(state: web::Data<AppState>) -> Result<Storage, actix_web::Err
     Ok(Storage { db, cache })
 }
 
-#[derive(Clone, Debug)]
-pub enum DbValue {
-    // Text(String),
-    // Int(i32),
-    // Bool(bool),
-    Bytes(Vec<u8>)
+// #[derive(Clone, Debug)]
+// pub enum DbValue {
+//     // Text(String),
+//     // Int(i32),
+//     // Bool(bool),
+//     Bytes(Vec<u8>)
+// }
+//
+// pub fn bulk_update(
+//     store: &mut Storage,
+//     table_name: &str,
+//     column_name: &str,
+//     updates: &[(i32, DbValue)],
+// ) -> Result<(), diesel::result::Error> {
+//     if updates.is_empty() {
+//         return Ok(());
+//     }
+//
+//     let mut values_sql = String::new();
+//     for (i, _) in updates.iter().enumerate() {
+//         if i > 0 {
+//             values_sql.push_str(", ");
+//         }
+//         let id_idx = i * 2 + 1;
+//         let val_idx = i * 2 + 2;
+//         values_sql.push_str(&format!("(${}, ${})", id_idx, val_idx));
+//     }
+//
+//     let query_str = format!(
+//         "UPDATE {} AS u \
+//          SET {} = t.new_val \
+//          FROM (VALUES {}) AS t(id, new_val) \
+//          WHERE u.id = t.id::integer",
+//         table_name, column_name, values_sql
+//     );
+//
+//     let mut query = sql_query(query_str).into_boxed();
+//
+//     for (id, val) in updates {
+//         query = query.bind::<Integer, _>(*id);
+//
+//         query = match val {
+//             // DbValue::Text(s) => query.bind::<Text, _>(s),
+//             // DbValue::Int(i) => query.bind::<Integer, _>(*i),
+//             // DbValue::Bool(b) => query.bind::<Bool, _>(*b),
+//             DbValue::Bytes(bytes) => query.bind::<Binary, _>(bytes),
+//         };
+//     }
+//
+//     query.execute(&mut store.db)?;
+//
+//     Ok(())
+// }
+//
+pub fn decrypt_opt(
+    encrypted: Option<Vec<u8>>,
+    dek: &Dek
+) -> Option<String> {
+    match encrypted {
+        Option::None => Option::None,
+        Some(ref te) => {
+            let decrypted_bytes = decrypt(dek.as_bytes(), &te).expect("Failed to decrypt value text");
+            Some(String::from_utf8(decrypted_bytes).expect("Convert value text to string failed"))
+        },
+    }
 }
 
-pub fn bulk_update(
-    store: &mut Storage,
-    table_name: &str,
-    column_name: &str,
-    updates: &[(i32, DbValue)],
-) -> Result<(), diesel::result::Error> {
-    if updates.is_empty() {
-        return Ok(());
+pub fn decrypt_str(
+    encrypted: Option<Vec<u8>>,
+    dek: &Dek
+) -> String {
+    match encrypted {
+        Option::None => String::new(),
+        Some(ref te) => {
+            let decrypted_bytes = decrypt(dek.as_bytes(), &te).expect("Failed to decrypt value text");
+            String::from_utf8(decrypted_bytes).expect("Convert value text to string failed")
+        },
     }
-
-    let mut values_sql = String::new();
-    for (i, _) in updates.iter().enumerate() {
-        if i > 0 {
-            values_sql.push_str(", ");
-        }
-        let id_idx = i * 2 + 1;
-        let val_idx = i * 2 + 2;
-        values_sql.push_str(&format!("(${}, ${})", id_idx, val_idx));
-    }
-
-    let query_str = format!(
-        "UPDATE {} AS u \
-         SET {} = t.new_val \
-         FROM (VALUES {}) AS t(id, new_val) \
-         WHERE u.id = t.id::integer",
-        table_name, column_name, values_sql
-    );
-
-    let mut query = sql_query(query_str).into_boxed();
-
-    for (id, val) in updates {
-        query = query.bind::<Integer, _>(*id);
-
-        query = match val {
-            // DbValue::Text(s) => query.bind::<Text, _>(s),
-            // DbValue::Int(i) => query.bind::<Integer, _>(*i),
-            // DbValue::Bool(b) => query.bind::<Bool, _>(*b),
-            DbValue::Bytes(bytes) => query.bind::<Binary, _>(bytes),
-        };
-    }
-
-    query.execute(&mut store.db)?;
-
-    Ok(())
 }

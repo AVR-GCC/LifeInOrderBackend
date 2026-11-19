@@ -1,6 +1,7 @@
 use core::iter::Iterator;
 
-use crate::utils::misc_types::Storage;
+use crate::utils::crypto::{Dek, encrypt};
+use crate::utils::misc_types::{ClientNewValue, ClientValue, Storage};
 use chrono::Datelike;
 use diesel::dsl::now;
 
@@ -9,7 +10,7 @@ use diesel::prelude::*;
 use crate::db::models::{NewValue, Value};
 use crate::db::schema::values::dsl::{
     created_at as dv_created_at, date as dv_date, values as values_table, habit_id as dv_habit_id,
-    number as dv_number, text as dv_text, value_id as dv_value_id,
+    number as dv_number, text_enc as dv_text_enc, value_id as dv_value_id,
 };
 use crate::utils::general::get_data_cache_key;
 use crate::utils::misc_types::ZoomLevel;
@@ -17,17 +18,28 @@ use redis::Commands;
 
 pub fn set_value(
     store: &mut Storage,
-    new_value: NewValue,
     user_id: i32,
-) -> Result<Value, actix_web::Error> {
+    dek: &Dek,
+    client_value: ClientNewValue,
+) -> Result<ClientValue, actix_web::Error> {
     println!(
-        "Creating value for value_id: {}, habit_id: {}, date: {}, text: {}, number: {}",
-        new_value.value_id,
-        new_value.habit_id,
-        new_value.date,
-        new_value.text.clone().unwrap_or("".to_string()),
-        new_value.number.clone().unwrap_or(0)
+        "Creating value for value_id: {}, habit_id: {}, date: {}, text_enc: {:?}, number: {}",
+        client_value.value_id,
+        client_value.habit_id,
+        client_value.date,
+        client_value.text,
+        client_value.number.clone().unwrap_or(0)
     );
+
+    let text_enc = client_value.text.clone().and_then(|text| Some(encrypt(dek.as_bytes(), text.as_bytes()).expect("Encrypting value text failed")));
+
+    let new_value = NewValue {
+        value_id: client_value.value_id,
+        habit_id: client_value.habit_id,
+        date: client_value.date,
+        text_enc: text_enc.clone(),
+        number: client_value.number
+    };
 
     let inserted = diesel::insert_into(values_table)
         .values(&new_value.clone())
@@ -35,7 +47,7 @@ pub fn set_value(
         .do_update()
         .set((
             dv_value_id.eq(new_value.value_id),
-            dv_text.eq(new_value.text),
+            dv_text_enc.eq(text_enc),
             dv_number.eq(new_value.number),
             dv_created_at.eq(now),
         ))
@@ -54,5 +66,15 @@ pub fn set_value(
         let _ = store.cache.del::<String, usize>(key.to_string());
     }
 
-    Ok(inserted)
+    let response = ClientValue {
+        id: inserted.id,
+        created_at: inserted.created_at,
+        value_id: client_value.value_id,
+        habit_id: client_value.habit_id,
+        date: client_value.date,
+        text: client_value.text,
+        number: client_value.number,
+    };
+
+    Ok(response)
 }

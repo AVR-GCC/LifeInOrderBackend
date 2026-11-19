@@ -3,25 +3,37 @@ use core::result::Result;
 use diesel::prelude::*;
 
 use crate::db::schema::habits::dsl::{
-    habit_type as uh_habit_type, id as uh_id, name as uh_name, sequence as uh_sequence,
+    habit_type as uh_habit_type, id as uh_id, name_enc as uh_name_enc, sequence as uh_sequence,
     habits as habits_table, weight as uh_weight,
 };
-use crate::utils::misc_types::Storage;
+use crate::utils::crypto::{Dek, encrypt};
+use crate::utils::misc_types::{ClientHabit, ClientNewHabit, Storage};
 
 use crate::db::models::{Habit, NewHabit};
 
 pub fn create_habit(
     store: &mut Storage,
-    new_habit: NewHabit
+    user_id: i32,
+    dek: &Dek,
+    client_habit: ClientNewHabit
 ) -> Result<Habit, actix_web::Error> {
     println!(
-        "Creating habit for user_id: {}, name: {:?}, weight: {}, sequence: {}, habit_type: {:?}",
-        new_habit.user_id,
-        new_habit.name,
-        new_habit.weight,
-        new_habit.sequence,
-        new_habit.habit_type
+        "Creating habit for name: {}, weight: {}, sequence: {}, habit_type: {:?}",
+        client_habit.name,
+        client_habit.weight,
+        client_habit.sequence,
+        client_habit.habit_type
     );
+
+    let name_enc = Some(encrypt(dek.as_bytes(), client_habit.name.as_bytes()).expect("Encrypting habit name failed"));
+
+    let new_habit = NewHabit {
+        user_id,
+        name_enc,
+        weight: client_habit.weight,
+        sequence: client_habit.sequence,
+        habit_type: client_habit.habit_type
+    };
 
     let inserted = diesel::insert_into(habits_table)
         .values(&new_habit)
@@ -38,19 +50,22 @@ pub fn create_habit(
 
 pub fn update_habit(
     store: &mut Storage,
-    habit: Habit
-) -> Result<Habit, actix_web::Error> {
+    dek: &Dek,
+    habit: ClientHabit
+) -> Result<ClientHabit, actix_web::Error> {
     println!(
         "Updating user_habit for name: {}, weight: {}, habit_type: {:?}",
         habit.name, habit.weight, habit.habit_type
     );
 
+    let name_enc = Some(encrypt(dek.as_bytes(), habit.name.as_bytes()).expect("Encrypting habit name failed"));
+
     let inserted = diesel::update(habits_table)
         .filter(uh_id.eq(habit.id))
         .set((
-            uh_name.eq(habit.name),
+            uh_name_enc.eq(name_enc),
             uh_weight.eq(habit.weight),
-            uh_habit_type.eq(habit.habit_type),
+            uh_habit_type.eq(habit.habit_type.clone()),
         ))
         .get_result::<Habit>(&mut store.db)
         .map_err(|e| {
@@ -60,7 +75,7 @@ pub fn update_habit(
 
     println!("Updated user_habit: {:?}", inserted);
 
-    Ok(inserted)
+    Ok(habit)
 }
 
 pub fn delete_habit(

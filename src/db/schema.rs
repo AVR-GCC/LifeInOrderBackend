@@ -13,7 +13,6 @@ diesel::table! {
     habits (id) {
         id -> Int4,
         user_id -> Int4,
-        name -> Varchar,
         weight -> Int4,
         sequence -> Int4,
         habit_type -> HabitType,
@@ -25,10 +24,8 @@ diesel::table! {
 diesel::table! {
     options (id) {
         id -> Int4,
-        label -> Nullable<Varchar>,
         sequence -> Int4,
         habit_id -> Int4,
-        color -> Nullable<Varchar>,
         created_at -> Timestamp,
         label_enc -> Nullable<Bytea>,
         color_enc -> Nullable<Bytea>,
@@ -64,7 +61,6 @@ diesel::table! {
         value_id -> Int4,
         habit_id -> Int4,
         date -> Date,
-        text -> Nullable<Varchar>,
         number -> Nullable<Int4>,
         created_at -> Timestamp,
         text_enc -> Nullable<Bytea>,

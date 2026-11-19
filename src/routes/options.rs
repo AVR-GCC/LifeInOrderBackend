@@ -4,19 +4,31 @@ use diesel::prelude::*;
 
 use crate::db::models::{NewVOption, VOption};
 use crate::db::schema::options::dsl::{
-    color as hv_color, options as options_table, id as hv_id, label as hv_label, sequence as hv_sequence,
+    color_enc as hv_color_enc, options as options_table, id as hv_id, label_enc as hv_label_enc, sequence as hv_sequence,
 };
-use crate::utils::misc_types::Storage;
+use crate::utils::crypto::{Dek, encrypt};
+use crate::utils::misc_types::{ClientNewOption, ClientOption, Storage};
 
 pub fn create_option(
     store: &mut Storage,
-    new_option: NewVOption,
-) -> Result<VOption, actix_web::Error> {
+    dek: &Dek,
+    client_option: ClientNewOption,
+) -> Result<ClientOption, actix_web::Error> {
     println!(
-        "Creating user_habit for habit_id: {}, color: {}",
-        new_option.habit_id,
-        new_option.color.clone().unwrap_or("".to_string())
+        "Creating user_habit for habit_id: {}, color: {:?}",
+        client_option.habit_id,
+        client_option.color
     );
+
+    let label_enc = client_option.label.clone().and_then(|label| Some(encrypt(dek.as_bytes(), label.as_bytes()).expect("Encrypting option label failed")));
+    let color_enc = client_option.color.clone().and_then(|color| Some(encrypt(dek.as_bytes(), color.as_bytes()).expect("Encrypting option color failed")));
+
+    let new_option = NewVOption {
+        habit_id: client_option.habit_id,
+        label_enc,
+        sequence: client_option.sequence,
+        color_enc
+    };
 
     let inserted = diesel::insert_into(options_table)
         .values(&new_option)
@@ -28,24 +40,37 @@ pub fn create_option(
 
     println!("Inserted option: {:?}", inserted);
 
-    Ok(inserted)
+    let created_option = ClientOption {
+        id: inserted.id,
+        habit_id: client_option.habit_id,
+        label: client_option.label,
+        sequence: client_option.sequence,
+        color: client_option.color,
+        created_at: inserted.created_at
+    };
+
+    Ok(created_option)
 }
 
 pub fn update_option(
     store: &mut Storage,
-    option: VOption
-) -> Result<VOption, actix_web::Error> {
+    dek: &Dek,
+    option_update: ClientOption
+) -> Result<ClientOption, actix_web::Error> {
     println!(
-        "Updating option for habit_id: {}, color: {}",
-        option.habit_id,
-        option.color.clone().unwrap_or("".to_string())
+        "Updating option_update for habit_id: {}, color: {:?}",
+        option_update.habit_id,
+        option_update.color
     );
 
+    let label_enc = option_update.label.clone().and_then(|label| Some(encrypt(dek.as_bytes(), label.as_bytes()).expect("Encrypting option label failed")));
+    let color_enc = option_update.color.clone().and_then(|color| Some(encrypt(dek.as_bytes(), color.as_bytes()).expect("Encrypting option color failed")));
+
     let inserted = diesel::update(options_table)
-        .filter(hv_id.eq(option.id))
+        .filter(hv_id.eq(option_update.id))
         .set((
-            hv_label.eq(option.label),
-            hv_color.eq(option.color),
+            hv_label_enc.eq(label_enc),
+            hv_color_enc.eq(color_enc),
         ))
         .get_result::<VOption>(&mut store.db)
         .map_err(|e| {
@@ -54,7 +79,7 @@ pub fn update_option(
         })?;
 
     println!("Updated option: {:?}", inserted);
-    Ok(inserted)
+    Ok(option_update)
 }
 
 pub fn delete_option(
